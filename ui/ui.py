@@ -9,24 +9,29 @@ class Game():
         self.bkgrnd_colour = (50, 50, 50)
         self.line_colour = (200, 50, 50)
         # self.view_cntr_ang = math.pi / 2
-        self.fod_ang = math.pi / 3
+        self.fov_ang = math.pi / 3      # Field of View angle
         self.view_ang = math.pi / 2     # angle between the z-axis and the centre of view
-        self.view_ang_delta = self.view_ang - self.fod_ang / 2   
+        self.view_ang_delta = self.view_ang - self.fov_ang / 2   
         self.view_height = 2.0
         self.dist_clip_plane = 1.0
         self.lines = []
         for i in range(1, 100):
-            self.lines.append([float(i)])
+            self.lines.append([float(i), 0.0, 0.0])
 
     def generate_perspective(self):
-        self.plane_height = self.dist_clip_plane * math.tan(self.fod_ang / 2) * 2
+        self.plane_height = self.dist_clip_plane * math.tan(self.fov_ang / 2) * 2
         scr_scale = self.plane_height / self.screen_dims[0]
         dist_view_edge = self.view_height * math.tan(self.view_ang_delta)
 
         for line in self.lines:
             dist_to_cam = line[0]
-            # real_height = line[2]
-            ang_to_point = self.view_ang - math.atan((dist_view_edge + dist_to_cam) / self.view_height)
+            real_height = line[2]
+            if self.view_height != real_height:
+                ang_to_point = self.view_ang - math.atan(
+                    (dist_view_edge + dist_to_cam) / (self.view_height - real_height)
+                )
+            else:
+                ang_to_point = 0
             height_in_vp = self.dist_clip_plane * math.tan(ang_to_point)
 
             
@@ -77,11 +82,18 @@ class Game():
                 sys.exit()
 
             elif event.type == KEYDOWN:
-                if event.key == K_MINUS:
-                    self.view_ang *= 0.995
+                key = event.key
+                if key == K_EQUALS:
+                    if self.fov_ang < math.pi - 0.01:
+                        self.fov_ang += math.pi / (self.fps * 20)
+                elif key == K_MINUS:
+                    if self.fov_ang > 0.01:
+                        self.fov_ang -= math.pi / (self.fps * 20)
 
-                elif event.key == K_EQUALS:
-                    self.view_ang *= 1.005
+                elif key == K_UP:
+                    self.view_ang += math.pi / (self.fps * 20)
+                elif key == K_DOWN:
+                    self.view_ang -= math.pi / (self.fps * 20)
 
 
     def main(self):
@@ -97,5 +109,5 @@ class Game():
                 pygame.display.flip()
                 self.fps_clock.tick(self.fps)
             except Exception as error:
-                # print(error)
+                print(error)
                 break
