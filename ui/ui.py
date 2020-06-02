@@ -1,4 +1,4 @@
-import pygame, sys, math
+import pygame, sys, math, random
 from pygame.locals import *
 
 class Game():
@@ -16,31 +16,52 @@ class Game():
         self.dist_clip_plane = 1.0
         self.lines = []
         for i in range(1, 100):
-            self.lines.append([float(i), 0.0, 0.0])
+            self.lines.append([[float(i), -5.0, 0.0], [float(i), 10.0, 0.0]])
+        for i in range(1, 100):
+            self.lines.append([[1.0, 50-float(i), 0.0], [500.0, 50-float(i), 0.0]])
+        for i in range(1, 100):
+            x = (random.random() - 0.5) * 100
+            y = (random.random() - 0.5) * 100
+            z_1 = (random.random() - 0.5) * 10
+            z_2 = z_1 + 1.0
+            self.lines.append([[x, y, z_1], [x, y, z_2]])
+        
 
     def generate_perspective(self):
         self.plane_height = self.dist_clip_plane * math.tan(self.fov_ang / 2) * 2
-        scr_scale = self.plane_height / self.screen_dims[0]
+        scr_scale = self.screen_dims[0] / self.plane_height
         dist_view_edge = self.view_height * math.tan(self.view_ang_delta)
+        horizontal_ang = math.atan(self.screen_dims[1] / (2* scr_scale * self.dist_clip_plane))
 
         for line in self.lines:
-            dist_to_cam = line[0]
-            real_height = line[2]
-            if self.view_height != real_height:
-                ang_to_point = self.view_ang - math.atan(
-                    (dist_view_edge + dist_to_cam) / (self.view_height - real_height)
-                )
-            else:
-                ang_to_point = 0
-            height_in_vp = self.dist_clip_plane * math.tan(ang_to_point)
+            screen_coords = []
+            for coord in line:
+                dist_to_cam = coord[0]
+                real_y = coord[1]
+                real_height = coord[2]
+                if self.view_height != real_height:
+                    ang_to_point_xz = self.view_ang - math.atan(
+                        (dist_view_edge + dist_to_cam) / (self.view_height - real_height)
+                    )
+                else:
+                    ang_to_point_xz = 0
+                
+                height_in_vp = self.dist_clip_plane * math.tan(ang_to_point_xz)
+                ang_to_point_yx = math.atan(real_y / (dist_to_cam))
+                width_in_vp = self.dist_clip_plane * math.tan(ang_to_point_yx)
+
+                
+                scr_height_from_centre = height_in_vp * scr_scale
+                height = round(self.screen_dims[1] / 2 + scr_height_from_centre)
+
+                scr_width_from_centre = width_in_vp * scr_scale
+                width = round(self.screen_dims[0] / 2 + scr_width_from_centre)
+                screen_coords.append([width, height])
 
             
-            scr_height_from_centre = height_in_vp / scr_scale
-            height = round(self.screen_dims[1] / 2 + scr_height_from_centre)
-            
-            self.draw_line([0, height], [self.screen_dims[0], height])
+            self.draw_line(screen_coords[0], screen_coords[1])
 
-            # print('line: ' + str(line[0]) + ', angle: ' + str(ang_to_point) + ', height vp: ' + str(height_in_vp) + ', scale: ' + str(scr_scale))
+            # print('line: ' + str(line[0]) + ', angle: ' + str(ang_to_point_xz) + ', height vp: ' + str(height_in_vp) + ', scale: ' + str(scr_scale))
             # print(height)
 
     def draw_line(self, start_coords, end_coords):
