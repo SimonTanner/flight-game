@@ -10,7 +10,6 @@ class Game():
         self.fps_clock = pygame.time.Clock()
         self.bkgrnd_colour = (50, 50, 50)
         self.line_colour = (200, 50, 50)
-        # self.view_cntr_ang = math.pi / 2
         self.fov_ang = math.pi / 3      # Field of View angle
         self.view_ang = math.pi / 2     # angle between the z-axis and the centre of view
         self.view_ang_delta = self.view_ang - self.fov_ang / 2   
@@ -118,24 +117,31 @@ class Game():
             face_3d = positioned_geometry[face_no]
             vector_1 = sum_vectors(face_3d[1], face_3d[0], True)
             vector_2 = sum_vectors(face_3d[2], face_3d[1], True)
-            print(face_no)
+            # print(face_no)
             normal = get_normal(vector_1, vector_2)
             colour = self.calc_light_colour(self.light_direction, normal, base_colour)
             is_visible = dot_product(normal, [1, 0, 0])
             if is_visible[0] >= 0.0:
-                self.draw_face(perspective_geometry[face_no], colour)
+                # print(perspective_geometry[face_no])
+                self.draw_face(perspective_geometry[face_no], colour, 1, (0, 0, 0))
 
         return positioned_geometry, perspective_geometry
 
-    def draw_face(self, face, colour):
+    def draw_face(self, face, colour, line_thickness=0, line_colour=None):
         pygame.draw.polygon(self.display_surface, colour, face, 0)
+        if line_colour == None:
+            line_colour = colour
+        if line_thickness > 0:
+            pygame.draw.polygon(self.display_surface, line_colour, face, line_thickness)
 
-    def draw_lines(self, coords):
+    def draw_lines(self, coords, colour=None):
         for coord in coords:
-            self.draw_line(coord[0], coord[1])
+            self.draw_line(coord[0], coord[1], colour)
 
-    def draw_line(self, start_coords, end_coords):
-        pygame.draw.line(self.display_surface, self.line_colour, start_coords, end_coords)
+    def draw_line(self, start_coords, end_coords, colour=None):
+        if colour == None:
+            colour = self.line_colour
+        pygame.draw.line(self.display_surface, colour, start_coords, end_coords)
 
     def load_ship(self, filename, folder):
         # "/".join(os.getcwd().split("/")[0:-1])
@@ -233,7 +239,7 @@ class Game():
                 print(traceback.format_exc())
 
                 # Output data for debugging
-                with open("data.json", "w+") as file:
-                    json.dump(self.ship_data_positioned, file, indent=4)
-                    file.close()
+                # with open("data.json", "w+") as file:
+                #     json.dump(self.ship_data_positioned, file, indent=4)
+                #     file.close()
                 break
