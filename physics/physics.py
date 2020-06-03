@@ -46,16 +46,23 @@ def cross_product(vector_1, vector_2):
 
     return cross_prod
 
+def get_normal(vector_1, vector_2):
+    perp_vector = cross_product(vector_1, vector_2)
+    length = scalar_product(perp_vector)
+    normal = list(map(lambda a: a / length, perp_vector))
+
+    return normal
+
 def sum_vectors(vec_1, vec_2, subtract=False):
     """
     Adds vec_1 & vec_2 or Subtracts vec_2 from vec_1
     """
     if subtract:
-        vec_sum = map(lambda a, b: a - b, vec_1, vec_2)
+        vec_sum = list(map(lambda a, b: a - b, vec_1, vec_2))
     else:
-        vec_sum = map(lambda a, b: a + b, vec_1, vec_2)
+        vec_sum = list(map(lambda a, b: a + b, vec_1, vec_2))
 
-    return(vec_sum)
+    return vec_sum
 
 def vector_ang(vec_1, vec_2):
     """
@@ -79,3 +86,56 @@ def vector_ang(vec_1, vec_2):
 
     return(ang_1)
 
+class Rotate():
+    def __init__(self):
+        self._create_rotation_matrix()
+
+    def _create_rotation_matrix(self):
+        # Rotational matrices around axes x, y, z
+        cos = math.cos
+        sin = math.sin
+
+        def return_0(val, neg=False):
+            return 0
+        
+        def return_1(val, neg=False):
+            return 1
+
+        rotate_x = [
+            [(return_1, 1), (return_0, 1), (return_0, 1)],
+            [(return_0, 1), (cos, 1), (sin, -1)],
+            [(return_0, 1), (sin, 1), (cos, 1)]
+        ]
+
+        rotate_y = [
+            [(cos, 1), (return_0, 1), (sin, 1)],
+            [(return_0, 1), (return_1, 1), (return_0, 1)],
+            [(sin, 1), (return_0, 1), (cos, 1)]
+        ]
+
+        rotate_z = [
+            [(cos, 1), (sin, -1), (return_0, 1)],
+            [(sin, 1), (cos, 1), (return_0, 1)],
+            [(return_0, 1), (return_0, 1), (return_1, 1)]
+        ]
+    
+        self.rotate = [rotate_x, rotate_y, rotate_z]
+
+    def rotate_data(self, coords, angle, offset=[0, 0, 0]):
+        """
+        Rotates vectors about the offset point
+        """
+        translated_point = sum_vectors(coords, offset, True)
+
+        def apply_matrix(matrix, angle, coords):
+            angle = math.radians(angle)
+            coords = list(map(lambda a: sum(map(lambda b, c: b[0](angle) * b[1] * c, a, coords)), matrix))
+            return coords
+
+        for idx in range(0, len(angle)):
+            if angle[idx] != 0:
+                translated_point = apply_matrix(self.rotate[idx], angle[idx], translated_point)
+
+        coords = list(sum_vectors(offset, translated_point))
+
+        return coords
