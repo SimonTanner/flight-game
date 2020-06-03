@@ -10,66 +10,85 @@ class Game():
         self.fps_clock = pygame.time.Clock()
         self.bkgrnd_colour = (50, 50, 50)
         self.line_colour = (200, 50, 50)
-        self.fov_ang = math.pi / 3      # Field of View angle
-        self.view_ang = math.pi / 2     # angle between the z-axis and the centre of view
-        self.view_ang_delta = self.view_ang - self.fov_ang / 2   
-        self.view_height = 2.0
-        self.dist_clip_plane = 1.0
-        self.lines = []
+
+        # Camera constants
+        self.camera_position = [0.0, 0.0, 2.0]
+        self.fov_ang = math.pi / 3          # Field of View angle
+        self.camera_ang = [0, 0]       # angle between the z-axis and the centre of view  
+        self.dist_clip_plane = 1.0          # Perpendicular distance from camera to clipping plane
+
         self.light_direction = [1.0, 2.0, -1.0]
+
+        # Consts for initialising ship
         self.start_angle_ship = [0.0, 0.0, 0.0]
         self.ship_angle = self.start_angle_ship
         self.ship_start_pos = [10.0, 0.0, 0.0]
+
         self.rotate = Rotate()
         self.create_test_data()
 
     def create_test_data(self):
-        for i in range(1, 100):
-            self.lines.append([[float(i), -5.0, 0.0], [float(i), 10.0, 0.0]])
-        for i in range(1, 100):
-            self.lines.append([[1.0, 50-float(i), 0.0], [500.0, 50-float(i), 0.0]])
+        # draw horizontal lines
+        self.lines = []
+        for i in range(1, 1000):
+            self.lines.append([[-10.0, float(i), 0.0], [10.0, float(i), 0.0]])
+
+        # draw lines along y plane
+        no_x_lines = 100
+        for i in range(0, no_x_lines):
+            x = i - no_x_lines / 2
+            self.lines.append([[x , 10000000.0, 0.0], [x, .01, 0.0]])
+
+        # draw vertical lines randomly
         for i in range(1, 100):
             x = (random.random() - 0.5) * 100
             y = (random.random() - 0.5) * 100
-            z_1 = (random.random() - 0.5) * 10
+            z_1 = (random.random() - 0.5) * 2
             z_2 = z_1 + 1.0
             self.lines.append([[x, y, z_1], [x, y, z_2]])
         
 
     def convert_to_perspective(self, objs):
+        # Calulate the scale required to translate between real coords & screen coords
         self.plane_height = self.dist_clip_plane * math.tan(self.fov_ang / 2) * 2
-        scr_scale = self.screen_dims[0] / self.plane_height
-        dist_view_edge = self.view_height * math.tan(self.view_ang_delta)
-        horizontal_ang = math.atan(self.screen_dims[1] / (2* scr_scale * self.dist_clip_plane))
+        scr_scale = self.screen_dims[1] / self.plane_height
 
         converted_coords = []
 
         for obj in objs:
             screen_coords = []
             for coord in obj:
-                dist_to_cam = coord[0]
-                real_y = coord[1]
-                real_height = coord[2]
-                if self.view_height != real_height:
-                    ang_to_point_xz = self.view_ang - math.atan(
-                        (dist_view_edge + dist_to_cam) / (self.view_height - real_height)
-                    )
-                else:
-                    ang_to_point_xz = 0
+                dist_x, dist_y, dist_z = [i - j for i, j in zip(coord, self.camera_position)]
+                print(dist_x, dist_y, dist_z)
+
+                # Calculate the angle to the object between the camera in the yz (vertical) &
+                # xy (horizontal) planes
+                if dist_y == 0.0:
+                    # if dist_y == 0 there will be division by zero error
+                    dist_y = 0.00001
+
+                ang_to_point_yz = math.atan(
+                    dist_z / dist_y
+                )
+                ang_to_point_xy = math.atan(
+                    dist_x / dist_y
+                )
+                # else:
+                #     # ang_to_point_yz = 0
+                #     # ang_to_point_xy = 0
+                #     ang_to_point_yz = math.pi / 2
+                #     ang_to_point_xy = math.pi / 2
+
+                delta_xy_in_vp = self.dist_clip_plane * math.tan(ang_to_point_xy + self.camera_ang[0])
+                delta_yz_in_vp = self.dist_clip_plane * math.tan(ang_to_point_yz + self.camera_ang[1])
+
+                scr_coord_y = round(self.screen_dims[1] / 2 - delta_yz_in_vp * scr_scale)
+                scr_coord_x = round(self.screen_dims[0] / 2 - delta_xy_in_vp * scr_scale)
                 
-                height_in_vp = self.dist_clip_plane * math.tan(ang_to_point_xz)
-                ang_to_point_yx = math.atan(real_y / (dist_to_cam))
-                width_in_vp = self.dist_clip_plane * math.tan(ang_to_point_yx)
+                screen_coords.append([scr_coord_x, scr_coord_y])
 
-                
-                scr_height_from_centre = height_in_vp * scr_scale
-                height = round(self.screen_dims[1] / 2 + scr_height_from_centre)
-
-                scr_width_from_centre = width_in_vp * scr_scale
-                width = round(self.screen_dims[0] / 2 + scr_width_from_centre)
-                screen_coords.append([width, height])
-
-            # print('line: ' + str(line[0]) + ', angle: ' + str(ang_to_point_xz) + ', height vp: ' + str(height_in_vp) + ', scale: ' + str(scr_scale))
+            print(screen_coords)
+            # print('line: ' + str(line[0]) + ', angle: ' + str(ang_to_point_yz) + ', height vp: ' + str(height_in_vp) + ', scale: ' + str(scr_scale))
             # print(height)
             converted_coords.append(screen_coords)
         # print(converted_coords)
@@ -94,14 +113,18 @@ class Game():
         return colour
 
     def position_geometry(self, objs, position, angle=(0, 0, 0)):
+        """
+        transforms geometry of an object to it's "real" world coordinates given a position & 
+        angle coordinates
+        """
         updated_geometry = []
         for obj in objs:
             world_coords = []
             for coord in obj:
-                print(angle)
-                print(coord)
+                # print(angle)
+                # print(coord)
                 coord = self.rotate.rotate_data(coord, angle)
-                print(coord)
+                # print(coord)
                 world_coord = sum_vectors(coord, position)
                 world_coords.append(world_coord)
             updated_geometry.append(world_coords)
@@ -122,8 +145,8 @@ class Game():
             colour = self.calc_light_colour(self.light_direction, normal, base_colour)
             is_visible = dot_product(normal, [1, 0, 0])
             if is_visible[0] >= 0.0:
-                # print(perspective_geometry[face_no])
-                self.draw_face(perspective_geometry[face_no], colour, 1, (0, 0, 0))
+                print(face)
+                self.draw_face(face, colour, 1, (0, 0, 0))
 
         return positioned_geometry, perspective_geometry
 
@@ -136,6 +159,7 @@ class Game():
 
     def draw_lines(self, coords, colour=None):
         for coord in coords:
+            # print(coord)
             self.draw_line(coord[0], coord[1], colour)
 
     def draw_line(self, start_coords, end_coords, colour=None):
@@ -203,10 +227,14 @@ class Game():
                     if self.fov_ang > 0.01:
                         self.fov_ang -= math.pi / (self.fps * 20)
 
-                # elif key == K_UP:
-                #     self.view_ang += math.pi / (self.fps * 20)
-                # elif key == K_DOWN:
-                #     self.view_ang -= math.pi / (self.fps * 20)
+                elif key == K_l:
+                    self.camera_ang = sum_vectors(self.camera_ang, [-math.pi / (self.fps * 20), 0])
+                elif key == K_r:
+                    self.camera_ang = sum_vectors(self.camera_ang, [math.pi / (self.fps * 20), 0])
+                elif key == K_u:
+                    self.camera_ang = sum_vectors(self.camera_ang, [0, -math.pi / (self.fps * 20)])
+                elif key == K_d:
+                    self.camera_ang = sum_vectors(self.camera_ang, [0, math.pi / (self.fps * 20)])
 
                 elif key == K_UP:
                     self.ship_angle = sum_vectors(self.ship_angle, [0, 1, 0])
@@ -223,13 +251,11 @@ class Game():
         self.init_game()
         while True:
             try:
-                # self.view_height += 1.0 / self.fps
-                # self.view_ang += math.pi / (20 * self.fps)
                 self.display_surface.fill(self.bkgrnd_colour)
                 converted_coords = self.convert_to_perspective(self.lines)
                 self.draw_lines(converted_coords)
                 # Render ship
-                self.render_ship()
+                # self.render_ship()
                 self.handle_events(pygame.event.get())
                 pygame.display.flip()
                 self.fps_clock.tick(self.fps)
