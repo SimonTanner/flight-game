@@ -31,6 +31,11 @@ def vector_area(vector_1, vector_2):
     area = scalar_product(cross_prod) / 2
     return area
 
+def dot_product(vector_1, vector_2):
+    dot_prod = list(map(lambda a, b: a * b, vector_1, vector_2))
+    
+    return dot_prod
+
 def cross_product(vector_1, vector_2):
     cross_prod = []
     idx_rule = {
@@ -49,6 +54,11 @@ def cross_product(vector_1, vector_2):
 def get_normal(vector_1, vector_2):
     perp_vector = cross_product(vector_1, vector_2)
     length = scalar_product(perp_vector)
+    if length <= 0.0:
+        print("---------get_normal---------")
+        print(vector_1)
+        print(vector_2)
+        print("---------get_normal---------")
     normal = list(map(lambda a: a / length, perp_vector))
 
     return normal
