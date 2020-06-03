@@ -20,9 +20,11 @@ class Game():
         self.light_direction = [1.0, 2.0, -1.0]
         self.start_angle_ship = [0.0, 0.0, 0.0]
         self.ship_angle = self.start_angle_ship
-        self.ship_start_pos = [5.0, 0.0, 0.5]
+        self.ship_start_pos = [10.0, 0.0, 0.0]
         self.rotate = Rotate()
+        self.create_test_data()
 
+    def create_test_data(self):
         for i in range(1, 100):
             self.lines.append([[float(i), -5.0, 0.0], [float(i), 10.0, 0.0]])
         for i in range(1, 100):
@@ -108,17 +110,22 @@ class Game():
 
     def draw_object(self, geometry, position, angle=(0, 0, 0)):
         positioned_geometry = self.position_geometry(geometry, position, angle)
-        geometry = self.convert_to_perspective(positioned_geometry)
-        for face_no in range(0, len(geometry)):
-            face = geometry[face_no]
+        perspective_geometry = self.convert_to_perspective(positioned_geometry)
+
+        for face_no in range(0, len(perspective_geometry)):
+            face = perspective_geometry[face_no]
             base_colour = (200, 50, 150)
             face_3d = positioned_geometry[face_no]
             vector_1 = sum_vectors(face_3d[1], face_3d[0], True)
             vector_2 = sum_vectors(face_3d[2], face_3d[1], True)
-            # print(vector_1)
+            print(face_no)
             normal = get_normal(vector_1, vector_2)
             colour = self.calc_light_colour(self.light_direction, normal, base_colour)
-            self.draw_face(geometry[face_no], colour)           
+            is_visible = dot_product(normal, [1, 0, 0])
+            if is_visible[0] >= 0.0:
+                self.draw_face(perspective_geometry[face_no], colour)
+
+        return positioned_geometry, perspective_geometry
 
     def draw_face(self, face, colour):
         pygame.draw.polygon(self.display_surface, colour, face, 0)
@@ -139,7 +146,9 @@ class Game():
 
     def render_ship(self):
         print(self.ship_angle)
-        self.draw_object(self.ship_data['faces'], self.ship_start_pos, self.ship_angle)
+        self.ship_data_positioned, _ = self.draw_object(
+            self.ship_data['faces'], self.ship_start_pos, self.ship_angle
+        )
             
 
     def init_game(self):
@@ -218,7 +227,13 @@ class Game():
                 self.handle_events(pygame.event.get())
                 pygame.display.flip()
                 self.fps_clock.tick(self.fps)
+
             except Exception as error:
                 print(error)
                 print(traceback.format_exc())
+
+                # Output data for debugging
+                with open("data.json", "w+") as file:
+                    json.dump(self.ship_data_positioned, file, indent=4)
+                    file.close()
                 break
