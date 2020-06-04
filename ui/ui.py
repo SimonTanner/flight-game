@@ -12,7 +12,7 @@ class Game():
         self.line_colour = (200, 50, 50)
 
         # Camera constants
-        self.camera_position = [0.0, 0.0, 2.0]
+        self.camera_position = [0.0, 0.0, 100.0]
         self.fov_ang = math.pi / 3          # Field of View angle
         self.camera_ang = [0, 0, 0]       # angle between the z-axis and the centre of view  
         self.dist_clip_plane = 1.0          # Perpendicular distance from camera to clipping plane
@@ -31,7 +31,7 @@ class Game():
         # draw horizontal lines
         self.lines = []
         for i in range(1, 1000):
-            self.lines.append([[-10.0, float(i), 0.0], [10.0, float(i), 0.0]])
+            self.lines.append([[-100.0, float(i), 0.0], [100.0, float(i), 0.0]])
 
         # # draw lines along y plane
         # no_x_lines = 100
@@ -39,13 +39,13 @@ class Game():
         #     x = i - no_x_lines / 2
         #     self.lines.append([[x , 10000000.0, 0.0], [x, .01, 0.0]])
 
-        # draw vertical lines randomly
-        for i in range(1, 100):
-            x = (random.random() - 0.5) * 100
-            y = (random.random() - 0.5) * 100
-            z_1 = (random.random() - 0.5) * 2
-            z_2 = z_1 + 1.0
-            self.lines.append([[x, y, z_1], [x, y, z_2]])
+        # # draw vertical lines randomly
+        # for i in range(1, 100):
+        #     x = (random.random() - 0.5) * 100
+        #     y = (random.random() - 0.5) * 100
+        #     z_1 = (random.random() - 0.5) * 2
+        #     z_2 = z_1 + 1.0
+        #     self.lines.append([[x, y, z_1], [x, y, z_2]])
         
 
     def convert_to_perspective(self, objs):
@@ -58,10 +58,10 @@ class Game():
         for obj in objs:
             screen_coords = []
             for coord in obj:
+                # print(coord)
                 dist_x, dist_y, dist_z = [i - j for i, j in zip(coord, self.camera_position)]
                 # print(dist_x, dist_y, dist_z)
-                camera_ang = list(map(lambda a: math.degrees(a), self.camera_ang))
-                dist_x, dist_y, dist_z = self.rotate.rotate_data((dist_x, dist_y, dist_z), camera_ang)
+
                 # Calculate the angle to the object between the camera in the yz (vertical) &
                 # xy (horizontal) planes
                 if dist_y == 0.0:
@@ -70,23 +70,29 @@ class Game():
 
                 ang_to_point_yz = math.atan(
                     dist_z / dist_y
-                )
+                ) - self.camera_ang[0]
+    
+                # print(ang_to_point_yz)
+
+                # print(dist_x, dist_y, dist_z)
+
                 ang_to_point_xy = math.atan(
                     dist_x / dist_y
-                )
-                # else:
-                #     # ang_to_point_yz = 0
-                #     # ang_to_point_xy = 0
-                #     ang_to_point_yz = math.pi / 2
-                #     ang_to_point_xy = math.pi / 2
+                ) - self.camera_ang[2]
 
-                delta_xy_in_vp = self.dist_clip_plane * math.tan(ang_to_point_xy) # + self.camera_ang[0]) 
-                delta_yz_in_vp = self.dist_clip_plane * math.tan(ang_to_point_yz) # + self.camera_ang[1]) #* (1 - math.sin(ang_to_point_xy) * math.cos(self.camera_ang[0]))
+                delta_xy_in_vp = self.dist_clip_plane * (math.cos(ang_to_point_xy)
+                # delta_xy_in_vp = self.dist_clip_plane * math.tan(ang_to_point_xy) - self.dist_clip_plane / math.cos(ang_to_point_yz) * dist_x / math.sqrt(dist_z ** 2 + dist_y ** 2)
+                # delta_xy_in_vp = self.dist_clip_plane * math.tan(ang_to_point_xy) / math.cos(ang_to_point_yz) 
+                # delta_xy_in_vp = self.dist_clip_plane / math.cos(ang_to_point_yz) * dist_x / math.sqrt(dist_z ** 2 + dist_y ** 2) 
 
-                scr_coord_y = round(self.screen_dims[1] / 2 - delta_yz_in_vp * scr_scale)
+                # delta_yz_in_vp = self.dist_clip_plane * math.tan(ang_to_point_yz) / math.cos(ang_to_point_xy)
+                delta_yz_in_vp = self.dist_clip_plane / math.cos(ang_to_point_xy) * dist_z / math.sqrt(dist_x ** 2 + dist_y ** 2)
+
                 scr_coord_x = round(self.screen_dims[0] / 2 - delta_xy_in_vp * scr_scale)
+                scr_coord_y = round(self.screen_dims[1] / 2 - delta_yz_in_vp * scr_scale)
                 
                 screen_coords.append([scr_coord_x, scr_coord_y])
+            # sys.exit()
 
             # print(screen_coords)
             # print('line: ' + str(line[0]) + ', angle: ' + str(ang_to_point_yz) + ', height vp: ' + str(height_in_vp) + ', scale: ' + str(scr_scale))
@@ -237,16 +243,18 @@ class Game():
                 elif key == K_d:
                     self.camera_ang = sum_vectors(self.camera_ang, [0, math.pi / (self.fps * 20), 0])
 
-                elif key == K_UP:
-                    self.ship_angle = sum_vectors(self.ship_angle, [0, 1, 0])
-                elif key == K_DOWN:
-                    self.ship_angle = sum_vectors(self.ship_angle, [0, -1, 0])
                 elif key == K_LEFT:
                     self.camera_ang = sum_vectors(self.camera_ang, [0, 0, math.pi / (self.fps * 20)])
                     # self.ship_angle = sum_vectors(self.ship_angle, [1, 0, 0])
                 elif key == K_RIGHT:
                     self.camera_ang = sum_vectors(self.camera_ang, [0, 0, -math.pi / (self.fps * 20)])
                     # self.ship_angle = sum_vectors(self.ship_angle, [-1, 0, 0])
+
+                elif key == K_UP:
+                    self.ship_angle = sum_vectors(self.ship_angle, [0, 1, 0])
+                elif key == K_DOWN:
+                    self.ship_angle = sum_vectors(self.ship_angle, [0, -1, 0])
+                
 
 
     def main(self):
