@@ -6,23 +6,24 @@ from physics.maths import *
 class Game():
     def __init__(self, screen_dims=[1400, 900]):
         self.screen_dims = screen_dims
-        self.fps = 30
+        self.fps = 30       # Frame rate
         self.fps_clock = pygame.time.Clock()
         self.bkgrnd_colour = (50, 50, 50)
         self.line_colour = (200, 50, 50)
 
         # Camera constants
-        self.camera_position = [0.0, 0.0, 100.0]
-        self.fov_ang = math.pi / 3          # Field of View angle
+        self.camera_position = [0.0, 0.0, 1.0]
+        self.fov_ang = math.pi / 2          # Field of View angle
         self.camera_ang = [0, 0, 0]       # angle between the z-axis and the centre of view  
-        self.dist_clip_plane = 1.0          # Perpendicular distance from camera to clipping plane
+        self.dist_clip_plane = 0.5          # Perpendicular distance from camera to clipping plane
 
         self.light_direction = [1.0, 2.0, -1.0]
 
         # Consts for initialising ship
         self.start_angle_ship = [0.0, 0.0, 0.0]
         self.ship_angle = self.start_angle_ship
-        self.ship_start_pos = [10.0, 0.0, 0.0]
+        self.ship_start_pos = [0.0, 10.0, 0.0]
+        self.cam_ang_rate = math.pi / self.fps / 2
 
         self.rotate = Rotate()
         self.create_test_data()
@@ -30,14 +31,16 @@ class Game():
     def create_test_data(self):
         # draw horizontal lines
         self.lines = []
-        for i in range(1, 1000):
-            self.lines.append([[-100.0, float(i), 0.0], [100.0, float(i), 0.0]])
+        no_y_lines = 100
+        for i in range(0, no_y_lines):
+            y = i - no_y_lines / 2
+            self.lines.append([[-10.0, y, 0.0], [10.0, y, 0.0]])
 
-        # # draw lines along y plane
-        # no_x_lines = 100
-        # for i in range(0, no_x_lines):
-        #     x = i - no_x_lines / 2
-        #     self.lines.append([[x , 10000000.0, 0.0], [x, .01, 0.0]])
+        # draw lines along y plane
+        no_x_lines = 100
+        for i in range(0, no_x_lines):
+            x = i - no_x_lines /2
+            self.lines.append([[x , 10000000.0, 0.0], [x, 0.0, 0.0]])
 
         # # draw vertical lines randomly
         # for i in range(1, 100):
@@ -45,7 +48,12 @@ class Game():
         #     y = (random.random() - 0.5) * 100
         #     z_1 = (random.random() - 0.5) * 2
         #     z_2 = z_1 + 1.0
-        #     self.lines.append([[x, y, z_1], [x, y, z_2]])
+        #     self.lines.append([[x, y, 0.0], [x, y, z_2]])
+
+        for i in range(0, 10):
+            self.lines.append([[5.0, 5 + i, 0.0], [5.0, 5 + i, 6.0]])
+
+
         
 
     def convert_to_perspective(self, objs):
@@ -68,25 +76,25 @@ class Game():
                     # if dist_y == 0 there will be division by zero error
                     dist_y = 0.00001
 
-                ang_to_point_yz = math.atan(
+                ang_yz = math.atan(
                     dist_z / dist_y
-                ) - self.camera_ang[0]
-    
-                # print(ang_to_point_yz)
+                )
 
+                delta_ang_yz = ang_yz - self.camera_ang[0]
+    
                 # print(dist_x, dist_y, dist_z)
 
-                ang_to_point_xy = math.atan(
+                ang_xy = math.atan(
                     dist_x / dist_y
-                ) - self.camera_ang[2]
+                )
 
-                delta_xy_in_vp = self.dist_clip_plane * (math.cos(ang_to_point_xy)
-                # delta_xy_in_vp = self.dist_clip_plane * math.tan(ang_to_point_xy) - self.dist_clip_plane / math.cos(ang_to_point_yz) * dist_x / math.sqrt(dist_z ** 2 + dist_y ** 2)
-                # delta_xy_in_vp = self.dist_clip_plane * math.tan(ang_to_point_xy) / math.cos(ang_to_point_yz) 
-                # delta_xy_in_vp = self.dist_clip_plane / math.cos(ang_to_point_yz) * dist_x / math.sqrt(dist_z ** 2 + dist_y ** 2) 
+                delta_ang_xy = ang_xy - self.camera_ang[2]
 
-                # delta_yz_in_vp = self.dist_clip_plane * math.tan(ang_to_point_yz) / math.cos(ang_to_point_xy)
-                delta_yz_in_vp = self.dist_clip_plane / math.cos(ang_to_point_xy) * dist_z / math.sqrt(dist_x ** 2 + dist_y ** 2)
+                pheta_yz = dist_z / math.sqrt(dist_x ** 2 + dist_y ** 2)
+                pheta_xy = dist_x / math.sqrt(dist_z ** 2 + dist_y ** 2)
+
+                delta_xy_in_vp = self.dist_clip_plane * (math.tan(delta_ang_xy)) - self.dist_clip_plane * pheta_xy * (1 / math.cos(ang_yz) - 1 / math.cos(delta_ang_yz)) / math.cos(self.camera_ang[2])
+                delta_yz_in_vp = self.dist_clip_plane * (math.tan(delta_ang_yz)) - self.dist_clip_plane * pheta_yz * (1 / math.cos(ang_xy) - 1 / math.cos(delta_ang_xy)) / math.cos(self.camera_ang[0])
 
                 scr_coord_x = round(self.screen_dims[0] / 2 - delta_xy_in_vp * scr_scale)
                 scr_coord_y = round(self.screen_dims[1] / 2 - delta_yz_in_vp * scr_scale)
@@ -94,7 +102,7 @@ class Game():
                 screen_coords.append([scr_coord_x, scr_coord_y])
             # sys.exit()
 
-            # print(screen_coords)
+            print(screen_coords)
             # print('line: ' + str(line[0]) + ', angle: ' + str(ang_to_point_yz) + ', height vp: ' + str(height_in_vp) + ', scale: ' + str(scr_scale))
             # print(height)
             converted_coords.append(screen_coords)
@@ -235,19 +243,19 @@ class Game():
                         self.fov_ang -= math.pi / (self.fps * 20)
 
                 elif key == K_l:
-                    self.camera_ang = sum_vectors(self.camera_ang, [-math.pi / (self.fps * 20), 0, 0])
+                    self.camera_ang = sum_vectors(self.camera_ang, [-self.cam_ang_rate, 0, 0])
                 elif key == K_r:
-                    self.camera_ang = sum_vectors(self.camera_ang, [math.pi / (self.fps * 20), 0, 0])
+                    self.camera_ang = sum_vectors(self.camera_ang, [self.cam_ang_rate, 0, 0])
                 elif key == K_u:
-                    self.camera_ang = sum_vectors(self.camera_ang, [0, -math.pi / (self.fps * 20), 0])
+                    self.camera_ang = sum_vectors(self.camera_ang, [0, -self.cam_ang_rate, 0])
                 elif key == K_d:
-                    self.camera_ang = sum_vectors(self.camera_ang, [0, math.pi / (self.fps * 20), 0])
+                    self.camera_ang = sum_vectors(self.camera_ang, [0, self.cam_ang_rate, 0])
 
                 elif key == K_LEFT:
-                    self.camera_ang = sum_vectors(self.camera_ang, [0, 0, math.pi / (self.fps * 20)])
+                    self.camera_ang = sum_vectors(self.camera_ang, [0, 0, self.cam_ang_rate])
                     # self.ship_angle = sum_vectors(self.ship_angle, [1, 0, 0])
                 elif key == K_RIGHT:
-                    self.camera_ang = sum_vectors(self.camera_ang, [0, 0, -math.pi / (self.fps * 20)])
+                    self.camera_ang = sum_vectors(self.camera_ang, [0, 0, -self.cam_ang_rate])
                     # self.ship_angle = sum_vectors(self.ship_angle, [-1, 0, 0])
 
                 elif key == K_UP:
