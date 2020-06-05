@@ -43,6 +43,63 @@ def cross_product(vector_1, vector_2):
 
     return cross_prod
 
+def get_plane(normal, perp_vector):
+    d = sum(map(lambda norm, perp: norm * perp, normal, perp_vector))
+
+    equation = {"D": d, "x": normal[0], "y": normal[1], "z": normal[2]}
+
+    return equation
+
+def get_line_equations(point_1, point_2):
+    """
+    Calculates line equations and returns dict object with each set
+    """
+    x_1, x_2 = point_1[0], point_2[0]
+    y_1, y_2 = point_1[1], point_2[1]
+    z_1, z_2 = point_1[2], point_2[2]
+
+    dx = x_1 - x_2
+    dy = y_1 - y_2
+    dz = z_1 - z_2
+
+    def get_line_equation(delta_1, delta_2, coord_1, coord_2):
+        # Calculates line equation and handles infinite or zero delta_2 / delta_1
+        # returning None as the coefficient if infinite
+        
+        if delta_1 != 0 and delta_2 != 0:
+            coeff = delta_2 / delta_1
+            const = coord_2 - coord_1 * coeff
+        elif delta_1 == 0:
+            coeff = None
+            const = coord_1
+        elif delta_2 == 0:
+            coeff = 0
+            const = coord_2
+        return coeff, const
+
+    # Calc y = f(x)
+    dy_dx, c_x = get_line_equation(dx, dy, x_1, y_1)
+
+    # Calc z = f(y)
+    dz_dy, c_y = get_line_equation(dy, dz, y_1, z_1)
+
+    # Calc x = f(z)
+    dx_dz, c_z = get_line_equation(dz, dx, z_1, x_1)
+
+    equations = {
+        "xy": {"coeff": dy_dx, "const": c_x},
+        "yz": {"coeff": dz_dy, "const": c_y},
+        "zx": {"coeff": dx_dz, "const": c_z},
+    }
+
+    return equations
+
+# def plane_line_interesect(plane, line):
+#     """
+#     Calculates the intersection coordinates for a line and a plane equation
+#     """
+    
+
 def get_normal(vector_1, vector_2):
     perp_vector = cross_product(vector_1, vector_2)
     length = scalar_product(perp_vector)
