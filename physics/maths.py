@@ -43,8 +43,8 @@ def cross_product(vector_1, vector_2):
 
     return cross_prod
 
-def get_plane(normal, perp_vector):
-    d = sum(map(lambda norm, perp: norm * perp, normal, perp_vector))
+def get_plane(normal, vector):
+    d = sum(map(lambda norm, perp: norm * perp, normal, vector))
 
     equation = {"D": d, "x": normal[0], "y": normal[1], "z": normal[2]}
 
@@ -87,18 +87,119 @@ def get_line_equations(point_1, point_2):
     dx_dz, c_z = get_line_equation(dz, dx, z_1, x_1)
 
     equations = {
-        "xy": {"coeff": dy_dx, "const": c_x},
-        "yz": {"coeff": dz_dy, "const": c_y},
-        "zx": {"coeff": dx_dz, "const": c_z},
+        "y_x": {"coeff": dy_dx, "const": c_x},
+        "z_y": {"coeff": dz_dy, "const": c_y},
+        "x_z": {"coeff": dx_dz, "const": c_z},
     }
 
     return equations
 
-# def plane_line_interesect(plane, line):
-#     """
-#     Calculates the intersection coordinates for a line and a plane equation
-#     """
+def apply_equation(coord, eqns, key):
+    coeff, const = eqns[key]["coeff"], eqns[key]["const"]
+    if coeff != None:
+        val = coeff * coord + const
+    else:
+        val = 0.0
     
+    return val
+
+def plane_line_interesect(plane, line_eqns):
+    """
+    Calculates the intersection coordinates for a line and a plane equation
+    """
+    mapping = {
+        "y_x": {
+            "eqn": "y_x",
+            "inv_eqn": "x_z",
+            "plane_coeffs": ["x", "y", "z"],
+            "line_eqns": ["y_x", "z_y"]
+        },
+        "z_y": {
+            "eqn": "z_y",
+            "inv_eqn": "y_x",
+            "plane_coeffs": ["y", "z", "x"],
+            "line_eqns": ["z_y", "x_z"]
+        },
+        "x_z": {
+            "eqn": "x_z",
+            "inv_eqn": "z_y",
+            "plane_coeffs": ["z", "x", "y"],
+            "line_eqns": ["x_z", "y_x"]
+        },
+    }
+    coord = None
+    eqn_used = ""
+    coords = {
+        "x": None,
+        "y": None,
+        "z": None
+    }
+    # print(plane)
+    axis_order = [
+        "x",
+        "y",
+        "z"
+    ]
+
+    for eqn in line_eqns.keys():
+        axis = mapping[eqn]["plane_coeffs"][0] # Tells us which axis was used
+        if line_eqns[eqn]["coeff"] not in [None] and plane[axis] != 0.0:
+            coord = get_intersect_coord(mapping[eqn], plane, line_eqns)
+            if coord != None:
+                print(eqn)
+                print(axis)
+                print(coord)
+                eqn_used = eqn
+                break
+
+    if coord != None:
+        coords[axis] = coord
+        for idx in range(0, len(mapping[eqn_used]["line_eqns"])):
+            eqn = mapping[eqn_used]["line_eqns"][idx]
+            axis = mapping[eqn_used]["plane_coeffs"][idx + 1]
+            print(eqn)
+            print(axis)
+            coord = apply_equation(coord, line_eqns, eqn)
+            print(coord)
+            coords[axis] = coord
+
+    print(coords)
+
+    values = [coords[axis] for axis in axis_order]
+
+    return values
+
+def get_intersect_coord(map_dict, plane, line_eqns):
+        
+        plane_1, plane_2, plane_3 = map_dict["plane_coeffs"]
+        inv_eqn = invert_equation(line_eqns[map_dict["inv_eqn"]])
+        eqn = line_eqns[map_dict["eqn"]]
+        # print(inv_eqn)
+        # print(eqn)
+        # print(plane)
+        numerator = (
+            plane["D"] - plane[plane_2] * eqn["const"] + plane[plane_3] * inv_eqn["const"]
+        )
+        axis_val =  numerator / (
+            plane[plane_1] + plane[plane_2] * eqn["coeff"] + plane[plane_3] * inv_eqn["coeff"]
+        )
+        return axis_val
+    
+
+def invert_equation(eqn):
+    coeff, const = eqn["coeff"], eqn["const"]
+    if coeff != None:
+        inv_eqn = {
+            "coeff": 1 / coeff,
+            "const": const / coeff
+        }
+    else:
+        inv_eqn = {
+            "coeff": 0.0,
+            "const": const
+        }
+
+    return inv_eqn
 
 def get_normal(vector_1, vector_2):
     perp_vector = cross_product(vector_1, vector_2)
@@ -178,7 +279,7 @@ class Rotate():
             [(return_0, 1), (return_0, 1), (return_1, 1)]
         ]
     
-        self.rotate = [rotate_x, rotate_y, rotate_z]
+        self.rotate_matrix = [rotate_x, rotate_y, rotate_z]
 
     def rotate_data(self, coords, angle, offset=[0, 0, 0]):
         """
@@ -187,17 +288,35 @@ class Rotate():
         translated_point = sum_vectors(coords, offset, True)
 
         def apply_matrix(matrix, angle, coords):
-            angle = math.radians(angle)
             coords = list(map(lambda a: sum(map(lambda b, c: b[0](angle) * b[1] * c, a, coords)), matrix))
             return coords
 
         for idx in range(0, len(angle)):
             if angle[idx] != 0:
-                translated_point = apply_matrix(self.rotate[idx], angle[idx], translated_point)
+                translated_point = apply_matrix(self.rotate_matrix[idx], angle[idx], translated_point)
 
         coords = list(sum_vectors(offset, translated_point))
 
         return coords
+
+    def unrotate_data(self, coords, angle, offset=[0, 0, 0]):
+        """
+        Rotates vectors about the offset point back to before it was rotated
+        """
+        translated_point = sum_vectors(coords, offset, True)
+
+        def apply_matrix(matrix, angle, coords):
+            coords = list(map(lambda a: sum(map(lambda b, c: b[0](angle) * b[1] * c, a, coords)), matrix))
+            return coords
+
+        for idx in range(len(angle) - 1, -1, -1):
+            if angle[idx] != 0:
+                translated_point = apply_matrix(self.rotate_matrix[idx], -1 * angle[idx], translated_point)
+
+        coords = list(sum_vectors(offset, translated_point))
+
+        return coords
+
 
 
 # def get_equation(start_point, end_point):
