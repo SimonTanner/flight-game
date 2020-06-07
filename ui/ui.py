@@ -13,9 +13,10 @@ class Game():
         self.rotate = Rotate()
 
         # Camera constants
-        self.camera_position = [0.0, -10.0, 06.0]
+        self.camera_position = [0.0, 01.0, 6.0]
         self.fov_ang = math.pi / 2          # Field of View angle
-        self.camera_ang = [0, 0, 0]         # angle between the z-axis and the centre of view  
+        self.camera_ang = [0, 0, 0]         # angle between the z-axis and the centre of view 
+        self.cam_ang_rate = math.pi / (self.fps * 5)
         self.dist_clip_plane = 0.5          # Perpendicular distance from camera to clipping plane
         self.init_cp_normal = list(map(lambda coord: coord / self.dist_clip_plane, [0.0, self.dist_clip_plane, 0.0]))
         self.cp_normal = self.init_cp_normal
@@ -26,10 +27,10 @@ class Game():
         self.light_direction = [1.0, 2.0, -1.0]
 
         # Consts for initialising ship
-        self.start_angle_ship = [0.0, 0.0, 0.0]
-        self.ship_angle = self.start_angle_ship
-        self.ship_start_pos = [0.0, 20.0, 0.0]
-        self.cam_ang_rate = math.pi / (self.fps * 5)
+        self.start_angle_ship = [0.0, 0.0, math.pi / 2]
+        self.ship_angle = [0, 0, 0]
+        self.ship_start_pos = [0.0, 5.0, 0.0]
+        
 
         self.lines = create_test_data()
 
@@ -53,7 +54,7 @@ class Game():
         
         self.get_clip_plane()
 
-    def convert_to_perspective(self, objs):
+    def convert_to_perspective(self, objs, is_dict=False):
         # Calulate the scale required to translate between real coords & screen coords
         self.plane_height = math.tan(self.fov_ang / 2) * 2
         
@@ -64,20 +65,34 @@ class Game():
         converted_coords = []
 
         for obj in objs:
-            p = 1
             screen_coords = []
-            print("--------------------------------------------------")
-            for coord in obj:
-                coords_to_point = [i - j for i, j in zip(coord, self.camera_position)]
-                print(coords_to_point)
+            points_vis = []
+            coords_to_point = []
+            # print("--------------------------------------------------")
+            if is_dict:
+                coords = obj["coords"]
+            else:
+                coords = obj
+            print(coords)
+        
+            for coord in coords:
+                coord_to_point = [i - j for i, j in zip(coord, self.camera_position)]
+                coords_to_point.append(coord_to_point)
+                # Check if the point is infront or behind the clipping plane
+                is_in_view = True if vector_ang(coord_to_point, self.cp_normal) < 90 else False
+                points_vis.append(is_in_view)
 
-                is_inview = True if vector_ang(coords_to_point, self.cp_normal) < 90 else False
+            if True not in points_vis:
+                # If no coords are visible we don't calculate
+                pass
 
-                if is_inview:
-                    line_eqns = get_line_equations((0, 0, 0), coords_to_point)
-                    # print("*****************************")
-                    # print(line_eqns)
-                    
+            else:
+                # In this case a point might be out of view but all other points are in view
+                for coord_to_point in coords_to_point:
+                    # is_in_view = True if vector_ang(coord_to_point, self.cp_normal) < 90 else False
+
+                    # if is_in_view:
+                    line_eqns = get_line_equations((0, 0, 0), coord_to_point)                    
 
                     intersect_coords = plane_line_interesect(self.clip_plane, line_eqns)
                     neg_cam_ang = list(map(lambda a: a * -1, self.camera_ang))
@@ -86,18 +101,8 @@ class Game():
                     rotated_coords = intersect_coords
                     # Get coords relative to camera centre point in the clipping plane
                     relative_coords = sum_vectors(intersect_coords, self.cp_centre_point, True)
-                    # Rotate these back to get the values required in the 2d plane
+                    # Rotate these back to get the values required in the 2D plane
                     plane_coords = self.rotate.unrotate_data(relative_coords, self.camera_ang)
-
-                    print("*****************************")
-                    
-                    print(self.clip_plane)
-                    print(line_eqns)
-                    print(coords_to_point)
-                    print(intersect_coords)
-                    print(relative_coords)
-                    print(plane_coords)
-                    print("*****************************")
 
                     # rotated_coords = self.rotate.rotate_data(intersect_coords, neg_cam_ang)
                     delta_xy_in_vp = plane_coords[0]
@@ -107,14 +112,10 @@ class Game():
                     scr_coord_y = round(self.screen_dims[1] / 2 - delta_yz_in_vp * scr_scale)
                     
                     screen_coords.append([scr_coord_x, scr_coord_y])
-                # print("---------------------------")
-            # print(obj)
-            print(screen_coords)
 
-            if len(screen_coords) == 2:
+            if len(screen_coords) >= 2:
                 converted_coords.append(screen_coords)
-        # print(converted_coords)
-        # sys.exit()
+        # print(converted_coor
         return converted_coords
 
     
@@ -141,36 +142,45 @@ class Game():
         transforms geometry of an object to it's "real" world coordinates given a position & 
         angle coordinates
         """
-        updated_geometry = []
+        positioned_geometry = []
         for obj in objs:
             world_coords = []
+            distances = []
             for coord in obj:
-                # print(angle)
-                # print(coord)
                 coord = self.rotate.rotate_data(coord, angle)
-                # print(coord)
                 world_coord = sum_vectors(coord, position)
+                distance = get_point_distance(self.camera_position, world_coord)
+                distances.append(distance)
                 world_coords.append(world_coord)
-            updated_geometry.append(world_coords)
-        return updated_geometry
+            average_distance = sum(distances) / len(distances)
+            positioned_geometry.append({"coords": world_coords, "distance": average_distance})
+
+        sorted_geometry = sorted(positioned_geometry, key=self._sort_by_distance)
+        print(sorted_geometry)
+
+        return sorted_geometry
+
+    def _sort_by_distance(self, obj):
+        return obj["distance"]
+
 
     def draw_object(self, geometry, position, angle=(0, 0, 0)):
         positioned_geometry = self.position_geometry(geometry, position, angle)
-        perspective_geometry = self.convert_to_perspective(positioned_geometry)
+        perspective_geometry = self.convert_to_perspective(positioned_geometry, is_dict=True)
 
         for face_no in range(0, len(perspective_geometry)):
             face = perspective_geometry[face_no]
             base_colour = (200, 50, 150)
-            face_3d = positioned_geometry[face_no]
-            vector_1 = sum_vectors(face_3d[1], face_3d[0], True)
+            face_3d = positioned_geometry[face_no]["coords"]
+            vector_1 = sum_vectors(face_3d[0], face_3d[1], True)
             vector_2 = sum_vectors(face_3d[2], face_3d[1], True)
             # print(face_no)
             normal = get_normal(vector_1, vector_2)
             colour = self.calc_light_colour(self.light_direction, normal, base_colour)
-            is_visible = dot_product(normal, [1, 0, 0])
-            if is_visible[0] >= 0.0:
+            is_visible = dot_product(normal, self.cp_normal)
+            # if is_visible[0] >= 0.0:
                 # print(face)
-                self.draw_face(face, colour, 1, (0, 0, 0))
+            self.draw_face(face, colour, 1, (0, 0, 0))
 
         return positioned_geometry, perspective_geometry
 
@@ -197,7 +207,15 @@ class Game():
         with open(file_path, "r") as file:
             self.ship_data = json.load(file)
             file.close()
+        faces = []
+        for face in self.ship_data["faces"]:
+            rotated_face = []
+            for vertex in face:
+                rotated_face.append(self.rotate.rotate_data(vertex, self.start_angle_ship))
+            faces.append(rotated_face)
 
+        self.ship_data["faces"] = faces
+            
     def render_ship(self):
         print(self.ship_angle)
         self.ship_data_positioned, _ = self.draw_object(
@@ -251,10 +269,10 @@ class Game():
                     if self.fov_ang > 0.01:
                         self.fov_ang -= math.pi / (self.fps * 20)
 
-                # elif key == K_l:
-                #     self.rotate_camera([0, -self.cam_ang_rate, 0])
-                # elif key == K_r:
-                #     self.rotate_camera([0, self.cam_ang_rate, 0])
+                elif key == K_l:
+                    self.rotate_camera([0, 0, self.cam_ang_rate])
+                elif key == K_r:
+                    self.rotate_camera([0, 0, -self.cam_ang_rate])
                     
                 elif key == K_u:
                     self.rotate_camera([self.cam_ang_rate, 0, 0])
@@ -262,17 +280,15 @@ class Game():
                 elif key == K_d:
                     self.rotate_camera([-self.cam_ang_rate, 0, 0])
 
-                elif key == K_LEFT:
-                    self.rotate_camera([0, 0, self.cam_ang_rate])
-                    # self.ship_angle = sum_vectors(self.ship_angle, [1, 0, 0])
-                elif key == K_RIGHT:
-                    self.rotate_camera([0, 0, -self.cam_ang_rate])
-                    # self.ship_angle = sum_vectors(self.ship_angle, [-1, 0, 0])
 
+                elif key == K_LEFT:
+                    self.ship_angle = sum_vectors(self.ship_angle, [0, 0, self.cam_ang_rate])
+                elif key == K_RIGHT:
+                    self.ship_angle = sum_vectors(self.ship_angle, [0, 0, -self.cam_ang_rate])
                 elif key == K_UP:
-                    self.ship_angle = sum_vectors(self.ship_angle, [1, 0, 0])
+                    self.ship_angle = sum_vectors(self.ship_angle, [self.cam_ang_rate, 0, 0])
                 elif key == K_DOWN:
-                    self.ship_angle = sum_vectors(self.ship_angle, [-1, 0, 0])
+                    self.ship_angle = sum_vectors(self.ship_angle, [-self.cam_ang_rate, 0, 0])
                 
 
 
@@ -285,20 +301,15 @@ class Game():
                 self.display_surface.fill(self.bkgrnd_colour)
                 converted_coords = self.convert_to_perspective(self.lines)
                 self.draw_lines(converted_coords)
-                # print("----------------------------------")
 
                 # Render ship
-                # self.render_ship()
-                
-                # self.camera_ang = sum_vectors(self.camera_ang, [0, 0, -self.cam_ang_rate])
+                self.render_ship()
 
                 self.handle_events(pygame.event.get())
+
                 pygame.display.flip()
                 self.fps_clock.tick(self.fps)
                 counter += 1
-                # sys.exit()
-                # if counter == self.fps * 4:
-                #     break
 
             except Exception as error:
                 print(error)
@@ -321,12 +332,13 @@ def create_test_data():
         y = i * dist_between
         lines.append([[-10.0, y, 0.0], [10.0, y, 0.0]])
 
-    # # draw lines along y plane
-    # no_x_lines = 100
-    # dist_between = 2.0
-    # for i in range(0, no_x_lines, 1):
-    #     x = i - no_x_lines /2 * dist_between
-    #     lines.append([[x , 10000000.0, 10.0], [x, 10.0, 10.0]])
+    # draw lines along y plane
+    no_x_lines = 100
+    dist_between = 2.0
+    for i in range(0, no_x_lines, 1):
+        x = (i - no_x_lines / 2) * dist_between
+        print(x)
+        lines.append([[x , 10000000.0, 0.0], [x, -0.0, 0.0]])
 
     # # draw vertical lines randomly
     # for i in range(1, 100):
@@ -336,8 +348,8 @@ def create_test_data():
     #     z_2 = z_1 + 1.0
     #     lines.append([[x, y, 0.0], [x, y, z_2]])
 
-    # for i in range(0, 10):
-    #     lines.append([[5.0, 5 + i, 0.0], [5.0, 5 + i, 6.0]])
+    for i in range(0, 10):
+        lines.append([[5.0, 5 + i, 0.0], [5.0, 5 + i, 6.0]])
 
     print(lines)
 

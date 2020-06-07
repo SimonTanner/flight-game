@@ -43,6 +43,12 @@ def cross_product(vector_1, vector_2):
 
     return cross_prod
 
+def get_point_distance(start_point, coords):
+    vector = sum_vectors(coords, start_point, True)
+    distance = scalar_product(vector)
+
+    return distance
+
 def get_plane(normal, vector):
     d = sum(map(lambda norm, perp: norm * perp, normal, vector))
 
@@ -146,9 +152,6 @@ def plane_line_interesect(plane, line_eqns):
         if line_eqns[eqn]["coeff"] not in [None] and plane[axis] != 0.0:
             coord = get_intersect_coord(mapping[eqn], plane, line_eqns)
             if coord != None:
-                print(eqn)
-                print(axis)
-                print(coord)
                 eqn_used = eqn
                 break
 
@@ -157,13 +160,8 @@ def plane_line_interesect(plane, line_eqns):
         for idx in range(0, len(mapping[eqn_used]["line_eqns"])):
             eqn = mapping[eqn_used]["line_eqns"][idx]
             axis = mapping[eqn_used]["plane_coeffs"][idx + 1]
-            print(eqn)
-            print(axis)
             coord = apply_equation(coord, line_eqns, eqn)
-            print(coord)
             coords[axis] = coord
-
-    print(coords)
 
     values = [coords[axis] for axis in axis_order]
 
