@@ -13,7 +13,7 @@ class Game():
         self.rotate = Rotate()
 
         # Camera constants
-        self.camera_position = [0.0, 01.0, 6.0]
+        self.camera_position = [0.01, -1.0, 5.01]
         self.fov_ang = math.pi / 2          # Field of View angle
         self.camera_ang = [0, 0, 0]         # angle between the z-axis and the centre of view 
         self.cam_ang_rate = math.pi / (self.fps * 5)
@@ -21,7 +21,7 @@ class Game():
         self.init_cp_normal = list(map(lambda coord: coord / self.dist_clip_plane, [0.0, self.dist_clip_plane, 0.0]))
         self.cp_normal = self.init_cp_normal
         self.init_perp_cp_vector()
-        print(self.perp_vec_cp)
+        # print(self.perp_vec_cp)
         self.get_clip_plane()
 
         self.light_direction = [1.0, 2.0, -1.0]
@@ -29,7 +29,7 @@ class Game():
         # Consts for initialising ship
         self.start_angle_ship = [0.0, 0.0, math.pi / 2]
         self.ship_angle = [0, 0, 0]
-        self.ship_start_pos = [0.0, 5.0, 0.0]
+        self.ship_start_pos = [0.01, 5.0, 0.5]
         
 
         self.lines = create_test_data()
@@ -48,7 +48,7 @@ class Game():
         Rotates the camera and calculates the new clipping plane, it's normal and perpendicular vector
         """
         self.camera_ang = sum_vectors(self.camera_ang, angle)
-        print(self.camera_ang)
+        # print(self.camera_ang)
         self.cp_normal = self.rotate.rotate_data(self.init_cp_normal, self.camera_ang)
         self.perp_vec_cp = self.rotate.rotate_data(self.init_perp_vec_cp, self.camera_ang)
         
@@ -57,10 +57,7 @@ class Game():
     def convert_to_perspective(self, objs, is_dict=False):
         # Calulate the scale required to translate between real coords & screen coords
         self.plane_height = math.tan(self.fov_ang / 2) * 2
-        
         scr_scale = self.screen_dims[1] / self.plane_height
-        print(scr_scale)
-        # scr_scale = 10
 
         converted_coords = []
 
@@ -73,13 +70,13 @@ class Game():
                 coords = obj["coords"]
             else:
                 coords = obj
-            print(coords)
         
             for coord in coords:
                 coord_to_point = [i - j for i, j in zip(coord, self.camera_position)]
                 coords_to_point.append(coord_to_point)
+                coord_to_plane = [i - j for i, j in zip(coord, self.cp_normal)]
                 # Check if the point is infront or behind the clipping plane
-                is_in_view = True if vector_ang(coord_to_point, self.cp_normal) < 90 else False
+                is_in_view = True if vector_ang(coord_to_plane, self.cp_normal) < 90 else False
                 points_vis.append(is_in_view)
 
             if True not in points_vis:
@@ -87,7 +84,10 @@ class Game():
                 pass
 
             else:
-                # In this case a point might be out of view but all other points are in view
+                if False in points_vis:
+                    # In this case a point might be out of view but all other points are in view
+                    coords_to_point = self._get_plane_object_intersection(coords_to_point, points_vis)
+                
                 for coord_to_point in coords_to_point:
                     # is_in_view = True if vector_ang(coord_to_point, self.cp_normal) < 90 else False
 
@@ -95,10 +95,7 @@ class Game():
                     line_eqns = get_line_equations((0, 0, 0), coord_to_point)                    
 
                     intersect_coords = plane_line_interesect(self.clip_plane, line_eqns)
-                    neg_cam_ang = list(map(lambda a: a * -1, self.camera_ang))
-                    # print(intersect_coords)
 
-                    rotated_coords = intersect_coords
                     # Get coords relative to camera centre point in the clipping plane
                     relative_coords = sum_vectors(intersect_coords, self.cp_centre_point, True)
                     # Rotate these back to get the values required in the 2D plane
@@ -118,7 +115,39 @@ class Game():
         # print(converted_coor
         return converted_coords
 
-    
+    def _get_plane_object_intersection(self, coords, points_vis):
+        # If a point is out of view, recalculate this point as the intersection between the line
+        # equation connecting these points and the intersection point between this and the clipping plane
+        idx = points_vis.index(False)
+        no_vertices = len(coords)
+        new_coords = []
+        start_val = idx - 1 if idx - 1 >= 0 else no_vertices - 1
+        end_val = idx + 1 if idx + 1 <= no_vertices - 1 else 0
+
+        # print("----------------------------------------")
+
+        if start_val != end_val:
+            points_idx = [start_val, end_val]
+        else:
+            points_idx = [start_val]
+
+        invisible_coord = coords[idx]
+
+        for point_idx in points_idx:
+            line_eqns = get_line_equations(invisible_coord, coords[point_idx])
+            intersect_coords = plane_line_interesect(self.clip_plane, line_eqns)
+            new_coords.append(intersect_coords)
+
+        # print(self.clip_plane)
+        # print("camera angle:", self.camera_ang)
+
+        # print("----------------------------------------")
+        coords.pop(idx)
+
+        for i in range(0, len(new_coords)):
+            coords.insert(idx + i, new_coords[i])
+
+        return coords
 
     def calc_light_colour(self, vector, face_normal, colour, intensity=1):
         """
@@ -156,7 +185,6 @@ class Game():
             positioned_geometry.append({"coords": world_coords, "distance": average_distance})
 
         sorted_geometry = sorted(positioned_geometry, key=self._sort_by_distance)
-        print(sorted_geometry)
 
         return sorted_geometry
 
@@ -217,7 +245,7 @@ class Game():
         self.ship_data["faces"] = faces
             
     def render_ship(self):
-        print(self.ship_angle)
+        # print(self.ship_angle)
         self.ship_data_positioned, _ = self.draw_object(
             self.ship_data['faces'], self.ship_start_pos, self.ship_angle
         )
@@ -303,7 +331,7 @@ class Game():
                 self.draw_lines(converted_coords)
 
                 # Render ship
-                self.render_ship()
+                # self.render_ship()
 
                 self.handle_events(pygame.event.get())
 
@@ -324,7 +352,7 @@ class Game():
 def create_test_data():
     lines = []
 
-    # # # draw horizontal lines
+    # draw horizontal lines
     no_y_lines = 10
     dist_between = 2.0
     for i in range(1, no_y_lines):
@@ -333,11 +361,11 @@ def create_test_data():
         lines.append([[-10.0, y, 0.0], [10.0, y, 0.0]])
 
     # draw lines along y plane
-    no_x_lines = 100
+    no_x_lines = 10
     dist_between = 2.0
     for i in range(0, no_x_lines, 1):
         x = (i - no_x_lines / 2) * dist_between
-        print(x)
+        # print(x)
         lines.append([[x , 10000000.0, 0.0], [x, -0.0, 0.0]])
 
     # # draw vertical lines randomly
@@ -350,6 +378,9 @@ def create_test_data():
 
     for i in range(0, 10):
         lines.append([[5.0, 5 + i, 0.0], [5.0, 5 + i, 6.0]])
+        lines.append([[-5.0, 5 + i, 0.0], [-5.0, 5 + i, 6.0]])
+        lines.append([[0.05, 5 + i, 10.], [-5.0, 5 + i, 6.0]])
+        lines.append([[5.0, 5 + i, 6.0], [0.05, 5 + i, 10.0]])
 
     print(lines)
 
