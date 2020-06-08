@@ -50,6 +50,9 @@ def get_point_distance(start_point, coords):
     return distance
 
 def get_plane(normal, vector):
+    if abs(scalar_product(normal) - 1.0) > 0.000000001:
+        normal = normalise_vector(normal)
+
     d = sum(map(lambda norm, perp: norm * perp, normal, vector))
 
     equation = {"D": d, "x": normal[0], "y": normal[1], "z": normal[2]}
@@ -72,14 +75,14 @@ def get_line_equations(point_1, point_2):
         # Calculates line equation and handles infinite or zero delta_2 / delta_1
         # returning None as the coefficient if infinite
         
-        if delta_1 != 0 and delta_2 != 0:
+        if delta_1 != 0.0 and delta_2 != 0.0:
             coeff = delta_2 / delta_1
             const = coord_2 - coord_1 * coeff
-        elif delta_1 == 0:
+        elif delta_1 == 0.0:
             coeff = None
             const = coord_1
-        elif delta_2 == 0:
-            coeff = 0
+        elif delta_2 == 0.0:
+            coeff = 0.0
             const = coord_2
         return coeff, const
 
@@ -105,7 +108,7 @@ def apply_equation(coord, eqns, key):
     if coeff != None:
         val = coeff * coord + const
     else:
-        val = 0.0
+        val = const
     
     return val
 
@@ -118,19 +121,19 @@ def plane_line_interesect(plane, line_eqns):
             "eqn": "y_x",
             "inv_eqn": "x_z",
             "plane_coeffs": ["x", "y", "z"],
-            "line_eqns": ["y_x", "z_y"]
+            "line_eqns": ["y_x", "z_y", "z_x"]
         },
         "z_y": {
             "eqn": "z_y",
             "inv_eqn": "y_x",
             "plane_coeffs": ["y", "z", "x"],
-            "line_eqns": ["z_y", "x_z"]
+            "line_eqns": ["z_y", "x_z", "y_x"]
         },
         "x_z": {
             "eqn": "x_z",
             "inv_eqn": "z_y",
             "plane_coeffs": ["z", "x", "y"],
-            "line_eqns": ["x_z", "y_x"]
+            "line_eqns": ["x_z", "y_x", "z_y"]
         },
     }
     coord = None
@@ -140,64 +143,134 @@ def plane_line_interesect(plane, line_eqns):
         "y": None,
         "z": None
     }
-    # print(plane)
+
     axis_order = [
         "x",
         "y",
         "z"
     ]
 
-    for eqn in line_eqns.keys():
-        axis = mapping[eqn]["plane_coeffs"][0] # Tells us which axis was used
-        if line_eqns[eqn]["coeff"] not in [None] and plane[axis] != 0.0:
-            coord = get_intersect_coord(mapping[eqn], plane, line_eqns)
-            if coord != None:
-                eqn_used = eqn
-                break
+    # mapping to show which value has been found from the given equation
+    axes_to_eqn = {
+        "y_x": "y",
+        "z_y": "z",
+        "x_z": "x"
+    }
 
-    if coord != None:
-        coords[axis] = coord
-        for idx in range(0, len(mapping[eqn_used]["line_eqns"])):
-            eqn = mapping[eqn_used]["line_eqns"][idx]
-            axis = mapping[eqn_used]["plane_coeffs"][idx + 1]
-            coord = apply_equation(coord, line_eqns, eqn)
-            coords[axis] = coord
+    # mapping to show which value has been found by inverting the given equation
+    axis_invert = {
+        "y_x": "x",
+        "z_y": "y",
+        "x_z": "z"
+    }
+
+    eqns_to_calc = []
+
+    # Firstly if any coefficients are 0.0 or None (i.e.) infinity we know the values are always just the consts
+    for eqn in line_eqns.keys():
+        coeff, const = line_eqns[eqn]["coeff"], line_eqns[eqn]["const"]
+        if coeff is None:
+            axis = axis_invert[eqn]
+            coords[axis] = const
+        elif coeff == 0.0:
+            axis = axes_to_eqn[eqn]
+            coords[axis] = const
+        else:
+            eqns_to_calc.append(eqn)
+
+    found_count = 0
+    for value in coords.values():
+        # Check which coords need to be found
+        if value != None:
+            found_count +=1
+
+    if found_count == 2:
+        # Case we already have 2 coords i.e due to 2 eqns of the form y = constant
+        coords = get_last_intersect_coord(plane, coords)
+    elif found_count == 1:
+        # Case we only have 1 coord
+        eqn = eqns_to_calc[0]
+        axis = axes_to_eqn[eqn]
+        coords[axis] = get_intersect_coord(mapping[eqn], plane, line_eqns)
+        coords = get_last_intersect_coord(plane, coords)
+
+    else:
+        for eqn in mapping.keys():
+            axis = mapping[eqn]["plane_coeffs"][0]
+            if line_eqns[eqn]["coeff"] == None:
+                axis = axis_invert[eqn]
+                coords[axis] = line_eqns[eqn]["const"]
+
+            else:
+                coords[axis] = get_intersect_coord(mapping[eqn], plane, line_eqns)
 
     values = [coords[axis] for axis in axis_order]
 
     return values
 
-def get_intersect_coord(map_dict, plane, line_eqns):
-        
-        plane_1, plane_2, plane_3 = map_dict["plane_coeffs"]
-        inv_eqn = invert_equation(line_eqns[map_dict["inv_eqn"]])
-        eqn = line_eqns[map_dict["eqn"]]
-        # print(inv_eqn)
-        # print(eqn)
-        # print(plane)
+def get_intersect_coord(map_dict, plane, line_eqns): 
+    plane_1, plane_2, plane_3 = map_dict["plane_coeffs"]
+    inv_eqn = invert_equation(line_eqns[map_dict["inv_eqn"]])
+    eqn = line_eqns[map_dict["eqn"]]
+    if inv_eqn["coeff"] != None:
         numerator = (
             plane["D"] - plane[plane_2] * eqn["const"] + plane[plane_3] * inv_eqn["const"]
         )
         axis_val =  numerator / (
             plane[plane_1] + plane[plane_2] * eqn["coeff"] + plane[plane_3] * inv_eqn["coeff"]
         )
-        return axis_val
-    
+    else:
+        axis_val = None
+
+    return axis_val
 
 def invert_equation(eqn):
     coeff, const = eqn["coeff"], eqn["const"]
-    if coeff != None:
+    if coeff != None and coeff != 0.0:
         inv_eqn = {
             "coeff": 1 / coeff,
             "const": const / coeff
         }
-    else:
+    elif coeff == None:
         inv_eqn = {
             "coeff": 0.0,
             "const": const
         }
+    else:
+        inv_eqn = {
+            "coeff": None,
+            "const": const
+        }
 
     return inv_eqn
+
+def get_last_intersect_coord(plane, coords):
+    """
+    Given a set of equations where two have coefficient as None then we already have two values
+    and can easily calculate the 3rd using the 2 coords & the plane equation
+    """
+    axes_found = []
+    for axis, value in coords.items():
+        if value is None:
+            axis_to_find = axis
+        else:
+            axes_found.append(axis)
+    total = 0.0
+
+    for axis in axes_found:
+        total += plane[axis] * coords[axis]
+    coords[axis_to_find] = (plane["D"] - total) / plane[axis_to_find]
+
+    return coords
+
+
+def check_coords_in_plane(plane, coords):
+    """
+    Simple checker for a point of intersection and a plane equation
+    """
+    D = plane["D"]
+    d = plane["x"] * coords[0] + plane["y"] * coords[1] + plane["z"] * coords[2]
+    return D, d
 
 def get_normal(vector_1, vector_2):
     perp_vector = cross_product(vector_1, vector_2)
@@ -208,6 +281,12 @@ def get_normal(vector_1, vector_2):
         print(vector_2)
         print("---------get_normal---------")
     normal = list(map(lambda a: a / length, perp_vector))
+
+    return normal
+
+def normalise_vector(vector):
+    length = scalar_product(vector)
+    normal = list(map(lambda a: a / length, vector))
 
     return normal
 
@@ -315,6 +394,3 @@ class Rotate():
 
         return coords
 
-
-
-# def get_equation(start_point, end_point):
