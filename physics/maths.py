@@ -301,6 +301,11 @@ def sum_vectors(vec_1, vec_2, subtract=False):
 
     return vec_sum
 
+def scale_vector(vector, scale):
+    scaled_vector = list(map(lambda a: a * scale, vector))
+
+    return scaled_vector
+
 def vector_ang(vec_1, vec_2):
     """
     Calculate the angle between two vectors

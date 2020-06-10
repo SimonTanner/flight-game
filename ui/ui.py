@@ -2,6 +2,7 @@ import pygame, sys, math, random, traceback, json, os
 from pygame.locals import *
 
 from physics.maths import *
+from physics.physics import *
 
 class Game():
     def __init__(self, screen_dims=[1400, 900]):
@@ -13,7 +14,7 @@ class Game():
         self.rotate = Rotate()
 
         # Camera constants
-        self.camera_position = [0.01, -1.0, 5.01]
+        self.camera_position = [-5.0, -10.0, 15.01]
         self.fov_ang = math.pi / 2          # Field of View angle
         self.camera_ang = [0, 0, 0]         # angle between the z-axis and the centre of view 
         self.cam_ang_rate = math.pi / (self.fps * 5)
@@ -27,11 +28,13 @@ class Game():
         self.light_direction = [1.0, 2.0, -1.0]
 
         # Consts for initialising ship
-        self.start_angle_ship = [0.0, 0.0, math.pi / 2]
+        self.start_angle_ship = [0.0, 0.0, 0.0]
         self.ship_angle = [0, 0, 0]
-        self.ship_start_pos = [0.01, 5.0, 0.5]
+        self.ship_start_pos = [-4.0, 4.0, 0.5]
+        self.ship_velocity = [0.0, 0.0, 0.0]
+        self.hover = False
         
-
+        self.time_rate = 1 / self.fps
         self.lines = create_test_data()
 
     def init_perp_cp_vector(self):
@@ -70,14 +73,21 @@ class Game():
                 coords = obj["coords"]
             else:
                 coords = obj
-        
+            # print(coords)
             for coord in coords:
                 coord_to_point = [i - j for i, j in zip(coord, self.camera_position)]
                 coords_to_point.append(coord_to_point)
-                coord_to_plane = [i - j for i, j in zip(coord, self.cp_normal)]
+                cp_position = sum_vectors(self.camera_position, self.cp_normal)
+                coord_to_plane = [i - j for i, j in zip(coord, cp_position)]
                 # Check if the point is infront or behind the clipping plane
+                # print(vector_ang(coord_to_point, coord_to_plane))
+                # print(coord_to_plane)
                 is_in_view = True if vector_ang(coord_to_plane, self.cp_normal) < 90 else False
                 points_vis.append(is_in_view)
+            # print(self.camera_ang)
+            # print(coords_to_point)
+            # print(points_vis)
+
 
             if True not in points_vis:
                 # If no coords are visible we don't calculate
@@ -101,7 +111,6 @@ class Game():
                     # Rotate these back to get the values required in the 2D plane
                     plane_coords = self.rotate.unrotate_data(relative_coords, self.camera_ang)
 
-                    # rotated_coords = self.rotate.rotate_data(intersect_coords, neg_cam_ang)
                     delta_xy_in_vp = plane_coords[0]
                     delta_yz_in_vp = plane_coords[2]
 
@@ -175,12 +184,14 @@ class Game():
         for obj in objs:
             world_coords = []
             distances = []
+
             for coord in obj:
                 coord = self.rotate.rotate_data(coord, angle)
                 world_coord = sum_vectors(coord, position)
                 distance = get_point_distance(self.camera_position, world_coord)
                 distances.append(distance)
                 world_coords.append(world_coord)
+
             average_distance = sum(distances) / len(distances)
             positioned_geometry.append({"coords": world_coords, "distance": average_distance})
 
@@ -200,15 +211,15 @@ class Game():
             face = perspective_geometry[face_no]
             base_colour = (200, 50, 150)
             face_3d = positioned_geometry[face_no]["coords"]
-            vector_1 = sum_vectors(face_3d[0], face_3d[1], True)
-            vector_2 = sum_vectors(face_3d[2], face_3d[1], True)
+            vector_1 = sum_vectors(face_3d[1], face_3d[0], True)
+            vector_2 = sum_vectors(face_3d[2], face_3d[0], True)
             # print(face_no)
             normal = get_normal(vector_1, vector_2)
             colour = self.calc_light_colour(self.light_direction, normal, base_colour)
-            is_visible = dot_product(normal, self.cp_normal)
-            # if is_visible[0] >= 0.0:
+            is_visible = vector_ang(normal, self.cp_normal)
+            if is_visible <= 90.0 and is_visible >= 0.0:
                 # print(face)
-            self.draw_face(face, colour, 1, (0, 0, 0))
+                self.draw_face(face, colour, 1, (0, 0, 0))
 
         return positioned_geometry, perspective_geometry
 
@@ -236,20 +247,73 @@ class Game():
             self.ship_data = json.load(file)
             file.close()
         faces = []
+        booster_normal = (0.0, 0.0, 1.0)
         for face in self.ship_data["faces"]:
             rotated_face = []
             for vertex in face:
                 rotated_face.append(self.rotate.rotate_data(vertex, self.start_angle_ship))
             faces.append(rotated_face)
-
         self.ship_data["faces"] = faces
+
+        self.ship_data["booster"] = booster_normal
+        self.ship_boost_vector = booster_normal
+        self.ship_boost_vector_ang = [0.0, 0.0, 0.0]
+
+        
             
     def render_ship(self):
         # print(self.ship_angle)
+        
+        if self.ship_start_pos[2] > 0.55:
+            dv_dt = get_velocity_change([0.0, 0.0, 0.0], 1, self.time_rate)
+            self.ship_velocity = sum_vectors(self.ship_velocity, dv_dt)
+            dp = scale_vector(self.ship_velocity, self.time_rate)
+            self.ship_start_pos = sum_vectors(self.ship_start_pos, dp)
+
+        if self.ship_start_pos[2] < 0.5:
+            self.ship_velocity = [0.0, 0.0, 0.0]
+            self.ship_start_pos = sum_vectors(self.ship_start_pos, [0,0,.5])
+
+        self.hover_ship()
+
         self.ship_data_positioned, _ = self.draw_object(
             self.ship_data['faces'], self.ship_start_pos, self.ship_angle
         )
-            
+
+    def rotate_ship(self, key):
+        if key == K_LEFT:
+            self.ship_angle = sum_vectors(self.ship_angle, [0, 0, -self.cam_ang_rate])
+            self.ship_boost_vector_ang = sum_vectors(self.ship_boost_vector_ang, [0, 0, -self.cam_ang_rate])
+        elif key == K_RIGHT:
+            self.ship_angle = sum_vectors(self.ship_angle, [0, 0, self.cam_ang_rate])
+            self.ship_boost_vector_ang = sum_vectors(self.ship_boost_vector_ang, [0, 0, self.cam_ang_rate])
+        elif key == K_UP:
+            self.ship_angle = sum_vectors(self.ship_angle, [-self.cam_ang_rate, 0, 0])
+            self.ship_boost_vector_ang = sum_vectors(self.ship_boost_vector_ang, [-self.cam_ang_rate, 0, 0])
+        elif key == K_DOWN:
+            self.ship_angle = sum_vectors(self.ship_angle, [self.cam_ang_rate, 0, 0])
+            self.ship_boost_vector_ang = sum_vectors(self.ship_boost_vector_ang, [self.cam_ang_rate, 0, 0])
+        print("ship_boost_vector_ang", self.ship_boost_vector_ang)
+
+    def boost_ship(self, amount):
+        boost_vector = self.rotate.rotate_data(self.ship_boost_vector, self.ship_boost_vector_ang)
+        
+        print("ship_boost_vector:", boost_vector)
+        boost_vec = scale_vector(boost_vector, amount)
+        dv_dt = get_velocity_change(boost_vec, 1, self.time_rate)
+        self.ship_velocity = sum_vectors(self.ship_velocity, dv_dt)
+        dp = scale_vector(self.ship_velocity, self.time_rate)
+        self.ship_start_pos = sum_vectors(self.ship_start_pos, dp)
+
+    def hover_ship(self):
+        if self.hover == True:
+            amount = 9.81
+            if self.ship_start_pos[2] < 50.0:
+                # speed = scalar_product(self.ship_velocity)
+                if self.ship_velocity[2] < 0.0:
+                    amount = .1 * abs(self.ship_velocity[2]) / self.time_rate + 19.5
+            # print(amount)
+            self.boost_ship(amount)
 
     def init_game(self):
         pygame.init()
@@ -308,15 +372,17 @@ class Game():
                 elif key == K_d:
                     self.rotate_camera([-self.cam_ang_rate, 0, 0])
 
+                elif key in [K_LEFT, K_RIGHT, K_UP, K_DOWN]:
+                    self.rotate_ship(key)
 
-                elif key == K_LEFT:
-                    self.ship_angle = sum_vectors(self.ship_angle, [0, 0, self.cam_ang_rate])
-                elif key == K_RIGHT:
-                    self.ship_angle = sum_vectors(self.ship_angle, [0, 0, -self.cam_ang_rate])
-                elif key == K_UP:
-                    self.ship_angle = sum_vectors(self.ship_angle, [self.cam_ang_rate, 0, 0])
-                elif key == K_DOWN:
-                    self.ship_angle = sum_vectors(self.ship_angle, [-self.cam_ang_rate, 0, 0])
+                elif key == K_RETURN:
+                    self.boost_ship(30)
+
+                elif key == K_h:
+                    if self.hover == False:
+                        self.hover = True
+                    elif self.hover == True:
+                        self.hover = False
                 
 
 
@@ -329,15 +395,12 @@ class Game():
                 self.display_surface.fill(self.bkgrnd_colour)
                 converted_coords = self.convert_to_perspective(self.lines)
                 self.draw_lines(converted_coords)
-
-                # Render ship
-                # self.render_ship()
-
                 self.handle_events(pygame.event.get())
-
+                # Render ship
+                self.render_ship()
+                # print("ship position:", self.ship_start_pos)
                 pygame.display.flip()
                 self.fps_clock.tick(self.fps)
-                counter += 1
 
             except Exception as error:
                 print(error)
@@ -377,7 +440,7 @@ def create_test_data():
     #     lines.append([[x, y, 0.0], [x, y, z_2]])
 
     for i in range(0, 10):
-        lines.append([[5.0, 5 + i, 0.0], [5.0, 5 + i, 6.0]])
+        lines.append([[5.0, 5 + i, -10.0], [5.0, 5 + i, 6.0]])
         lines.append([[-5.0, 5 + i, 0.0], [-5.0, 5 + i, 6.0]])
         lines.append([[0.05, 5 + i, 10.], [-5.0, 5 + i, 6.0]])
         lines.append([[5.0, 5 + i, 6.0], [0.05, 5 + i, 10.0]])
