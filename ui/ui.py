@@ -216,7 +216,8 @@ class Game():
             # print(face_no)
             normal = get_normal(vector_1, vector_2)
             colour = self.calc_light_colour(self.light_direction, normal, base_colour)
-            is_visible = vector_ang(normal, self.cp_normal)
+            dir_vec_to_cam = sum_vectors(face_3d[0], self.camera_position, True)
+            is_visible = vector_ang(normal, dir_vec_to_cam)
             if is_visible <= 90.0 and is_visible >= 0.0:
                 # print(face)
                 self.draw_face(face, colour, 1, (0, 0, 0))
