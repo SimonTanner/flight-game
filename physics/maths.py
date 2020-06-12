@@ -15,6 +15,9 @@ def calc_surface_area(surface):
 
 
 def scalar_product(vector):
+    """
+    Returns the scalar product of a vector i.e. it's scalar length
+    """
     scalar = math.sqrt(sum(map(lambda a: a**2, vector)))
     return scalar
 
@@ -306,7 +309,7 @@ def scale_vector(vector, scale):
 
     return scaled_vector
 
-def vector_ang(vec_1, vec_2):
+def vector_ang(vec_1, vec_2, in_degrees=True):
     """
     Calculate the angle between two vectors
     """
@@ -317,14 +320,17 @@ def vector_ang(vec_1, vec_2):
             mod_vec_1 = math.sqrt(sum(map(lambda c: c**2, vec_1)))
             mod_vec_2 = math.sqrt(sum(map(lambda c: c**2, vec_2)))
             cos_ang_1 = dot_prod / (mod_vec_1 * mod_vec_2)
-            ang_1 = math.degrees(math.acos(cos_ang_1))
 
         except ValueError:
-            ang_1 = 0.0
+            cos_ang_1 = 0.0
             break
 
         else:
             break
+    if in_degrees is True:
+        ang_1 = math.degrees(math.acos(cos_ang_1))
+    else:
+        ang_1 = math.acos(cos_ang_1)
 
     return(ang_1)
 
