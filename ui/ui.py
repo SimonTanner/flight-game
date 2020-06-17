@@ -286,8 +286,6 @@ class Game():
         
             
     def render_ship(self):
-        # print(self.ship_angle)
-        
         if self.ship_start_pos[2] > 0.55:
             dv_dt = get_velocity_change([0.0, 0.0, 0.0], 1, self.time_rate)
             self.ship_velocity = sum_vectors(self.ship_velocity, dv_dt)
@@ -337,14 +335,9 @@ class Game():
     def _rotate_ship(self, angle_array):
         self.ship_angle = sum_vectors(self.ship_angle, angle_array)
         self.ship_boost_vector_ang = sum_vectors(self.ship_boost_vector_ang, angle_array)
-        # if self.align_cam_to_ship is True:
-        #     print("ALIGNED")
-        #     self.camera_ang = self.ship_angle
-        #     self.rotate_camera([0, 0, self.cam_ang_rate])
 
     def boost_ship(self, amount):
         boost_vector = self.rotate.rotate_data(self.ship_boost_vector, self.ship_boost_vector_ang)
-        
         # print("ship_boost_vector:", boost_vector)
         boost_vec = scale_vector(boost_vector, amount)
         dv_dt = get_velocity_change(boost_vec, 1, self.time_rate)
@@ -356,23 +349,13 @@ class Game():
         if self.hover == True:
             amount = 9.81
             if self.ship_start_pos[2] < 50.0:
-                # speed = scalar_product(self.ship_velocity)
                 if self.ship_velocity[2] < 0.0:
                     amount = .1 * abs(self.ship_velocity[2]) / self.time_rate + 19.5
-            # print(amount)
             self.boost_ship(amount)
 
     def init_game(self):
         pygame.init()
         self.load_ship("ship-geometry.json", "3d/ship/")
-
-        # Load icon
-        # logo_rel_path = 'logo/Bio-Logo-v1.jpg'
-        # logo_path = os.path.join(os.getcwd(), logo_rel_path)
-        # logo = pygame.image.load(logo_path)
-        # pygame.display.set_icon(logo)
-
-
         self.display_surface = pygame.display.set_mode(
             self.screen_dims,
             pygame.RESIZABLE|pygame.HWSURFACE|pygame.DOUBLEBUF,
