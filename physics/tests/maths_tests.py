@@ -153,6 +153,21 @@ class TestEQNS(unittest.TestCase):
 
         self.assertAlmostEqual(expected_total, total)
 
+class TestConelane(unittest.TestCase):
+
+    def test_get_line_equations_in_xy_plane(self):
+
+        cone_plane = ConePlane(math.pi / 4)
+        self.assertEqual(cone_plane.cone_angle, math.pi / 4)
+
+        line_coords = [[-3.0, 1.0, 0.0], [3.0, 1.0, 0.0]]
+        angles = [0.0, 0.0, 0.0]
+
+        intersect_point = cone_plane.plane_line_interesect(line_coords, angles)
+        expected_point = [1.0, 1.0, 0.0]
+        
+        for i in range(len(intersect_point)):
+            self.assertAlmostEqual(intersect_point[i], expected_point[i], 5)
 
 if __name__ == '__main__':
     unittest.main()
