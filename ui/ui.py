@@ -15,10 +15,13 @@ class Game():
 
         # Camera constants
         self.camera_position = [0.01, -10.0, 2.0]
-        self.fov_ang = math.pi / 2          # Field of View angle
-        self.camera_start_ang = [-math.pi / 6, 0, 0]         # angle between the z-axis and the centre of view 
+        # Field of View angle
+        self.fov_ang = math.pi / 2     
+        # angle between the z-axis and the centre of view      
+        self.camera_start_ang = [-math.pi / 6, 0, 0]        
         self.cam_ang_rate = math.pi / (self.fps * 5)
-        self.dist_clip_plane = 0.5          # Perpendicular distance from camera to clipping plane
+        # Perpendicular distance from camera to clipping plane
+        self.dist_clip_plane = 0.5
         self.initialise_camera()
         self.get_max_visible_angle()
 

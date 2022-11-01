@@ -11,6 +11,7 @@ class TestEQNS(unittest.TestCase):
         point_2 = (0.0, 0.0, 0.0)
 
         eqns = get_line_equations(point_1, point_2)
+        print(eqns)
         
         self.assertEqual(eqns["y_x"], {"coeff": 1.0, "const": 0.0})
         self.assertEqual(eqns["z_y"], {"coeff": 0.0, "const": 0.0})
@@ -131,6 +132,8 @@ class TestEQNS(unittest.TestCase):
 
         intersect_point = plane_line_interesect(plane, eqns)
 
+        print("intersect_point", intersect_point)
+
         expected_total, total = check_coords_in_plane(plane, intersect_point)
 
         self.assertEqual(expected_total, total)
@@ -153,7 +156,7 @@ class TestEQNS(unittest.TestCase):
 
         self.assertAlmostEqual(expected_total, total)
 
-class TestConelane(unittest.TestCase):
+class TestConePlane(unittest.TestCase):
 
     def test_get_line_equations_in_xy_plane(self):
 
@@ -164,6 +167,7 @@ class TestConelane(unittest.TestCase):
         angles = [0.0, 0.0, 0.0]
 
         intersect_point = cone_plane.plane_line_interesect(line_coords, angles)
+        print("intersect_point", intersect_point)
         expected_point = [1.0, 1.0, 0.0]
         
         for i in range(len(intersect_point)):

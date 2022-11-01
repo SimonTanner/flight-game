@@ -518,8 +518,6 @@ class ConePlane():
             print(axis_to_find)
             coords[axis_to_find] = math.sqrt(coords["y"] ** 2 * self.tan_ang_sqrd - coords[other_axis] ** 2)
 
-        
-
         return coords
 
     def plane_line_interesect(self, coords, angle):
@@ -574,6 +572,8 @@ class ConePlane():
 
                 else:
                     intersect_coords[axis] = self._get_intersect_coord(self.mapping[eqn])
+        
+        print("equations", self.equations)
 
         values = [intersect_coords[axis] for axis in self.axis_order]
 
