@@ -465,65 +465,82 @@ class ConePlane():
         """
         Get the value of an axis at the point of intersection between a line and a conical plane
         """
-        inv_eqn = invert_equation(self.line_equations[mapping["inv_eqn"]])
-        eqn = self.line_equations[mapping["eqn"]]
+        axis_vals = []
+        inv_eqn = invert_equation(self.equations[mapping["inv_eqn"]])
+        eqn = self.equations[mapping["eqn"]]
+        print("USING equation:", mapping["eqn"])
 
         if inv_eqn["coeff"] != None:
             coeff_sqrd = eqn["coeff"] ** 2
             const_sqrd = eqn["const"] ** 2
             inv_coeff_sqrd = inv_eqn["const"] ** 2
             inv_const_sqrd = inv_eqn["const"] ** 2
-            alpha = coeff_sqrd * self.tan_ang_sqrd - inv_coeff_sqrd ** 2 - 1
-            beta = eqn["coeff"] * eqn["const"] * self.tan_ang_sqrd - inv_eqn["const"]
 
-            sqr_to_check = inv_const_sqrd - const_sqrd * self.tan_ang_sqrd + beta ** 2
+            beta = const_sqrd * self.tan_ang_sqrd - inv_const_sqrd
+            omega = coeff_sqrd * self.tan_ang_sqrd - inv_coeff_sqrd - 1
+            rho = 2 * (eqn["coeff"] * eqn["const"] - inv_eqn["coeff"] * inv_eqn["const"])
+
+            sqr_to_check = rho ** 2 - 4 * beta * omega
+            print("sqr_to_check", sqr_to_check)
             if sqr_to_check > 0.0:
                 # TODO - figure out how to know whether to subtract or add due to square root
-                axis_val = (-beta + math.sqrt(sqr_to_check)) / alpha
-            else:
-                axis_val = None
-        else:
-            axis_val = None
+                axis_val = (-rho + math.sqrt(sqr_to_check)) / (2 * omega)
+                axis_vals.append(axis_val)
+                axis_val = (-rho - math.sqrt(sqr_to_check)) / (2 * omega)
+                axis_vals.append(axis_val)
 
-        return axis_val
+        print("axis vals", axis_vals)
 
-    def _get_last_intersect_coord(self, coords):
+        return axis_vals
+
+    def _get_last_intersect_coord(self, int_coords, orig_coords):
         """
         Given a set of equations where two have coefficient as None then we already have two values
-        and can easily calculate the 3rd using the 2 coords & the plane equation
+        and can easily calculate the 3rd using the 2 int_coords & the plane equation
         """
         axes_found = []
-        total = 0.0
+        total = [0.0, 0.0]
         x_z_axes = ["x", "z"]
-        print(coords)
+        print(int_coords)
 
-        for axis, value in coords.items():
-            if value is None:
+        for axis, values in int_coords.items():
+            if values is None:
                 axis_to_find = axis
             else:
                 axes_found.append(axis)
 
+        print("axis_to_find", axis_to_find)
+
         if axis_to_find == "y":
             # Because the cone is aligned with the y axis the plane has the coefficient
             # tan^2(angle)
-            for axis in axes_found:
-                total += coords[axis] ** 2
+            int_coords[axis_to_find] = []
+            for i in range(len(int_coords[axis])):
+                for axis in axes_found:
+                    total[i] += int_coords[axis][i] ** 2
 
-            coords[axis_to_find] = math.sqrt(total / self.tan_ang_sqrd)
+                int_coords[axis_to_find].append(math.sqrt(total[i] / self.tan_ang_sqrd))
 
         elif axis_to_find in x_z_axes:
             del(x_z_axes[x_z_axes.index(axis_to_find)])
             other_axis = x_z_axes[0]
             print(other_axis)
             print(axis_to_find)
-            coords[axis_to_find] = math.sqrt(coords["y"] ** 2 * self.tan_ang_sqrd - coords[other_axis] ** 2)
 
-        return coords
+            int_coords[axis_to_find] = []
+            idx = self.axis_order.index(axis_to_find)
+            for i in range(len(int_coords["y"])):
+                val = math.sqrt(int_coords["y"][i] ** 2 * self.tan_ang_sqrd - int_coords[other_axis][i] ** 2)
+                if orig_coords[i][idx] < 0 :
+                    val *= -1
+                int_coords[axis_to_find].append(val)
+
+        return int_coords
 
     def plane_line_interesect(self, coords, angle):
         """
-        Calculates the intersection coordinates for a line and a plane equation. The angle is a list of the angles between
-        the y axis, because the cone is set in the y direction for simplicity
+        Calculates the intersection coordinates for a line and a plane equation. The angle is a list of the
+        angles between the y axis, because the cone central axis is set in the y direction for simplicity
         """
         self._get_equations(coords, angle)
 
@@ -534,47 +551,86 @@ class ConePlane():
         }
 
         eqns_to_calc = []
+        print(self.equations)
 
-        # Firstly if any coefficients are 0.0 or None (i.e.) infinity we know the values are always just the consts
+        # Firstly if any coefficients are 0.0 or None (i.e.) infinity we know the values are 
+        # always just the consts
         for eqn in self.equations.keys():
             coeff, const = self.equations[eqn]["coeff"], self.equations[eqn]["const"]
             if coeff is None:
                 axis = self.axis_invert[eqn]
-                intersect_coords[axis] = const
+                intersect_coords[axis] = [const, const]
+
             elif coeff == 0.0:
                 axis = self.axes_to_eqn[eqn]
-                intersect_coords[axis] = const
+                intersect_coords[axis] = [const, const]
+
             else:
                 eqns_to_calc.append(eqn)
 
         found_count = 0
         for value in intersect_coords.values():
-            # Check which coords need to be found
+            # Check how many coords need to be found
             if value != None:
                 found_count +=1
 
+        print("found_count", found_count)
+
         if found_count == 2:
             # Case we already have 2 coords i.e due to 2 eqns of the form y = constant
-            intersect_coords = self._get_last_intersect_coord(intersect_coords)
+            intersect_coords = self._get_last_intersect_coord(intersect_coords, coords)
         elif found_count == 1:
             # Case we only have 1 coord
             eqn = eqns_to_calc[0]
-            axis = self.axes_to_eqn[eqn]
+            print("EQN to find:", eqn)
+            axis = self.axis_invert[eqn]
+            print("Axis to find:", axis)
             intersect_coords[axis] = self._get_intersect_coord(self.mapping[eqn])
-            intersect_coords = self._get_last_intersect_coord(intersect_coords)
+            intersect_coords = self._get_last_intersect_coord(intersect_coords, coords)
 
         else:
+            # Case no values found i.e. line has non zero values for dx, dy, dz
             for eqn in self.mapping.keys():
                 axis = self.mapping[eqn]["plane_coeffs"][0]
                 if self.equations[eqn]["coeff"] == None:
                     axis = self.axis_invert[eqn]
                     intersect_coords[axis] = self.equations[eqn]["const"]
 
-                else:
+                elif eqn != "z_y":
+                    # Finding y must be done last because the equation for this is different to x, z
                     intersect_coords[axis] = self._get_intersect_coord(self.mapping[eqn])
-        
-        print("equations", self.equations)
+            # finally find y values as we have x & z
+            intersect_coords = self._get_last_intersect_coord(intersect_coords, coords)
+            print(intersect_coords)
 
+        # print(intersect_coords)
         values = [intersect_coords[axis] for axis in self.axis_order]
+        values = [[ i for i, j in values ], [ j for i, j in values ]]
+        
+        if values[0] == values[1]:
+            # if both points are the same delete one
+            del(values[1])
 
-        return values
+        print(values)
+        valid_points = []
+        for value in values:
+            if self.check_point(coords, value):
+                valid_points.append(value)
+
+        print(valid_points)
+
+        return valid_points
+
+    def check_point(self, coords, point):
+        """
+        Checks whether an intersection point is between the start and end point of the line defined by coords
+        """
+        in_range = []
+        for i in range(len(point)):
+            if (point[i] < coords[0][i] and point[i] > coords[1][i]) or (point[i] < coords[1][i] and point[i] > coords[0][i]):
+                in_range.append(True)
+
+        if False not in in_range:
+            return True
+        else:
+            return False
