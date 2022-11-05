@@ -153,6 +153,24 @@ class TestEQNS(unittest.TestCase):
 
         self.assertAlmostEqual(expected_total, total)
 
+    def test_plane_line_interesect_delta_z(self):
+        # test for vector parallel to an axis
+        perp_vector_to_plane = [0.9685831611286307, -0.24868988716485613, 0.0]
+        normal = normalise_vector(perp_vector_to_plane)
+
+        # test when only no change in one axis
+        plane = get_plane(normal, perp_vector_to_plane)
+        point_1 = (9.450127700171018, 9.97583431643897, -2.5)
+        point_2 = (9.450127700171018, 9.97583431643897, 3.5)
+
+        eqns = get_line_equations(point_1, point_2)
+
+        intersect_point = plane_line_interesect(plane, eqns)
+
+        expected_total, total = check_coords_in_plane(plane, intersect_point)
+
+        self.assertAlmostEqual(expected_total, total)
+
 class TestConePlaneBothPointsOutOfCone(unittest.TestCase):
     @staticmethod
     def check_is_on_cone(angle, point):

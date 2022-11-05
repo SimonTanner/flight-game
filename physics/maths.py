@@ -1,4 +1,4 @@
-import math
+import math, sys, traceback
 
 
 def calc_surface_area(surface):
@@ -69,10 +69,16 @@ def get_line_equations(point_1, point_2):
     x_1, x_2 = point_1[0], point_2[0]
     y_1, y_2 = point_1[1], point_2[1]
     z_1, z_2 = point_1[2], point_2[2]
+    try:
 
-    dx = x_1 - x_2
-    dy = y_1 - y_2
-    dz = z_1 - z_2
+        dx = x_1 - x_2
+        dy = y_1 - y_2
+        dz = z_1 - z_2
+    
+    except TypeError as err:
+        print("point 1:", point_1, "point 2:", point_2)
+        print("Error:", err)
+        sys.exit()
 
     def get_line_equation(delta_1, delta_2, coord_1, coord_2):
         # Calculates line equation and handles infinite or zero delta_2 / delta_1
@@ -103,6 +109,7 @@ def get_line_equations(point_1, point_2):
         "z_y": {"coeff": dz_dy, "const": c_y},
         "x_z": {"coeff": dx_dz, "const": c_z},
     }
+    print("line eqns:", equations)
 
     return equations
 
@@ -187,15 +194,18 @@ def plane_line_interesect(plane, line_eqns, is_flat=True):
         if value != None:
             found_count +=1
 
+    print("found count:", found_count)
+
     if found_count == 2:
         # Case we already have 2 coords i.e due to 2 eqns of the form y = constant
-        coords = get_last_intersect_coord(plane, coords)
+        # print("line eqns:", line_eqns)
+        coords = get_last_intersect_coord(plane, coords, line_eqns)
     elif found_count == 1:
         # Case we only have 1 coord
         eqn = eqns_to_calc[0]
         axis = axes_to_eqn[eqn]
         coords[axis] = get_intersect_coord(mapping[eqn], plane, line_eqns)
-        coords = get_last_intersect_coord(plane, coords)
+        coords = get_last_intersect_coord(plane, coords, line_eqns)
 
     else:
         for eqn in mapping.keys():
@@ -247,7 +257,7 @@ def invert_equation(eqn):
 
     return inv_eqn
 
-def get_last_intersect_coord(plane, coords):
+def get_last_intersect_coord(plane, coords, eqns):
     """
     Given a set of equations where two have coefficient as None then we already have two values
     and can easily calculate the 3rd using the 2 coords & the plane equation
@@ -262,7 +272,47 @@ def get_last_intersect_coord(plane, coords):
 
     for axis in axes_found:
         total += plane[axis] * coords[axis]
-    coords[axis_to_find] = (plane["D"] - total) / plane[axis_to_find]
+
+    if plane[axis_to_find] != 0.0:
+        coords[axis_to_find] = (plane["D"] - total) / plane[axis_to_find]
+    else:
+        x_idx, y_idx, z_idx = 0, 1, 2
+        eqns_to_axes = {
+            "y": [{"y_x": x_idx}, {"z_y": z_idx}],
+            "z": [{"z_y": y_idx}, {"x_z": x_idx}],
+            "x": [{"x_z": z_idx}, {"y_x": y_idx}]
+        }
+
+        eqn_to_axis = eqns_to_axes[axis_to_find]
+        for idx in range(0, len(eqn_to_axis)):
+            # Case that we can use the equation and not the inverse one. If we can use the 1st dict in the array. 
+
+                eqn_to_use_key = list(eqn_to_axis[idx].keys())[0]
+                print(eqn_to_use_key)
+                coord_idx = eqn_to_axis[idx][eqn_to_use_key]
+                if idx == 0:
+                    eqn_for_axis = eqns[eqn_to_use_key]
+                else:
+                    eqn_for_axis = invert_equation(eqns[eqn_to_use_key])
+                    print("inverted equation:", eqn_for_axis)
+
+                # If the coeff is Inf (None) then skip and use inverse instead
+                if eqn_for_axis["coeff"] == None:
+                    continue
+                else:
+                    coords[axis_to_find] = eqn_for_axis["coeff"] * coords[coord_idx]
+                    break
+    
+    print("coords:", coords)
+
+    # try:
+    #     coords[axis_to_find] = (plane["D"] - total) / plane[axis_to_find]
+
+    # except ZeroDivisionError as err:
+    #     print("axes found:", axes_found)
+    #     print("plane:", plane)
+    #     print("coords:", coords)
+    #     raise err
 
     return coords
 

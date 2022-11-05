@@ -39,7 +39,7 @@ class Game():
         self.ship_start_pos = [-0.0, 0.0, 0.5]
         self.ship_velocity = [0.0, 0.0, 0.0]
         self.ship_base_colour = (200, 50, 150)
-        self.ship_turn_rate = math.pi / (self.fps * 2)
+        self.ship_turn_rate = math.pi / (self.fps * 5)
         self.hover = False
         self.align_cam_to_ship = False
         
@@ -164,15 +164,21 @@ class Game():
         cp_coords = scale_vector(self.cp_normal, cp_dist)
 
         clip_plane = get_plane(self.cp_normal, cp_coords)
+        print("clipping plane_normal:", self.cp_normal)
 
         if start_val != end_val:
             points_idx = [start_val, end_val]
         else:
             points_idx = [start_val]
 
+
         invisible_coord = coords[idx]
 
+        print("coords:", coords)
+        print("invisible_coord:", invisible_coord)
+
         for point_idx in points_idx:
+            print("visible_coord:", coords[point_idx])
             line_eqns = get_line_equations(invisible_coord, coords[point_idx])
             intersect_coords = plane_line_interesect(clip_plane, line_eqns)
             new_coords.append(intersect_coords)
