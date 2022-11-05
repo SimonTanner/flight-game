@@ -48,8 +48,23 @@ class Game():
 
     def initialise_camera(self):
         self.init_cp_normal = list(map(lambda coord: coord / self.dist_clip_plane, [0.0, self.dist_clip_plane, 0.0]))
+        half_fov_ang = self.fov_ang / 2
+        # Get the normal for the RHS clipping plane -> rotate the clipping plane normal about the z axis.
+        self.cp_normal_right = self.rotate.rotate_data(self.init_cp_normal, [0, 0, half_fov_ang])
+        # Get the normal for the LHS clipping plane -> rotate the clipping plane normal about the z axis.
+        self.cp_normal_left = self.rotate.rotate_data(self.init_cp_normal, [0, 0, -half_fov_ang])
+        # Get the normal for the top clipping plane -> rotate the clipping plane normal about the x axis.
+        self.cp_normal_top = self.rotate.rotate_data(self.init_cp_normal, [half_fov_ang, 0, 0])
+        # Get the normal for the bottom clipping plane -> rotate the clipping plane normal about the x axis.
+        self.cp_normal_bottom = self.rotate.rotate_data(self.init_cp_normal, [-half_fov_ang, 0, 0])
+
+        # Rotate all normals to align with the starting camera angle.
         self.camera_ang = self.camera_start_ang
         self.cp_normal = self.rotate.rotate_data(self.init_cp_normal, self.camera_start_ang)
+        self.cp_normal_right = self.rotate.rotate_data(self.cp_normal_right, self.camera_start_ang)
+        self.cp_normal_left = self.rotate.rotate_data(self.cp_normal_left, self.camera_start_ang)
+        self.cp_normal_top = self.rotate.rotate_data(self.cp_normal_top, self.camera_start_ang)
+        self.cp_normal_bottom = self.rotate.rotate_data(self.cp_normal_bottom, self.camera_start_ang)
 
         self.init_perp_cp_vector()
         # print(self.perp_vec_cp)
@@ -81,7 +96,7 @@ class Game():
         self.get_clip_plane()
 
     def convert_to_perspective(self, objs, is_dict=False):
-        # Calculate the scale required to translate between real coords & screen coords
+        """Calculate the scale required to translate between real coords & screen coords"""
         self.plane_height = math.tan(self.fov_ang / 2) * 2
         scr_scale = self.screen_dims[1] / self.plane_height
 
@@ -93,11 +108,15 @@ class Game():
             coords_to_point = []
             angles_from_cp_normal = []
             # print("--------------------------------------------------")
+
+            # Check whether it's a shape or a line.
             if is_dict:
                 coords = obj["coords"]
             else:
                 coords = obj
+
             for coord in coords:
+                # Get the relative coordinates to the camera position.
                 coord_to_point = [i - j for i, j in zip(coord, self.camera_position)]
                 coords_to_point.append(coord_to_point)
 
@@ -145,14 +164,60 @@ class Game():
 
         return converted_coords
 
+    def get_intersection_plane(self, visible_coord, invisible_coord):
+        xz_ratio = self.screen_dims[1] / self.screen_dims[0]
+        max_x = invisible_coord[1] / math.tan(self.fov_ang/2)
+        print("max angle z:", self.fov_ang * xz_ratio / 2)
+        max_z = max_x * xz_ratio
+
+        line_dx = invisible_coord[0] - visible_coord[0]
+        line_dz = invisible_coord[2] - visible_coord[2] 
+        if line_dx != 0:
+            if line_dz == 0:
+                angle = math.pi
+            else:
+                angle = math.atan(line_dz / line_dx)
+        else:
+            angle = math.pi/2
+
+        max_dx = max_x - visible_coord[0]
+        # min_dx = max_dx * -1
+        max_dz = max_z - visible_coord[2]
+        min_dz = max_dz * -1
+
+        max_angle = math.atan(max_dz / max_dx)
+        print(
+            "angle:", angle,
+            "\nmax angle:", max_angle,
+            "\nline dx:", line_dx,
+            "\nline dz:", line_dz,
+            "\nmax_x:", max_x, 
+            "\nmax_z:", max_z, 
+            "\nmax_dx:", max_dx, 
+            "\nmax_dz:", max_dz, 
+        )
+
+        if angle >= 0 and angle <= max_angle:
+            print("self.cp_normal_right")
+            return self.cp_normal_right
+        elif angle >= 0 and angle >= max_angle:
+            print("self.cp_normal_top")
+            return self.cp_normal_top
+        elif angle <= 0 and angle >= max_angle:
+            print("self.cp_normal_left")
+            return self.cp_normal_left
+        elif angle <= 0 and angle <= max_angle:
+            print("self.cp_normal_bottom")
+            return self.cp_normal_bottom
+
     def _get_plane_object_intersection(self, coords, points_vis, angles_from_cp_normal):
         # If a point is out of view, recalculate this point as the intersection between the line
         # equation connecting these points and the intersection point between this and the clipping plane
         idx = points_vis.index(False)
         no_vertices = len(coords)
-        if no_vertices > 2:
-            print(coords)
-            print(points_vis)
+        # if no_vertices > 2:
+        #     print(coords)
+        #     print(points_vis)
 
         new_coords = []
         start_val = idx - 1 if idx - 1 >= 0 else no_vertices - 1
@@ -170,7 +235,6 @@ class Game():
             points_idx = [start_val, end_val]
         else:
             points_idx = [start_val]
-
 
         invisible_coord = coords[idx]
 
