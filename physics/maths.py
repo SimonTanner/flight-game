@@ -11,7 +11,7 @@ def calc_surface_area(surface):
         area += vector_area(vector_1, vector_2)
         if idx == 0:
             perp_vector = cross_product(vector_1, vector_2)
-    return area, perp_vector     
+    return area, perp_vector
 
 
 def scalar_product(vector):
@@ -21,23 +21,22 @@ def scalar_product(vector):
     scalar = math.sqrt(sum(map(lambda a: a**2, vector)))
     return scalar
 
+
 def vector_area(vector_1, vector_2):
     cross_prod = cross_product(vector_1, vector_2)
     area = scalar_product(cross_prod) / 2
     return area
 
+
 def dot_product(vector_1, vector_2):
     dot_prod = list(map(lambda a, b: a * b, vector_1, vector_2))
-    
+
     return dot_prod
+
 
 def cross_product(vector_1, vector_2):
     cross_prod = []
-    idx_rule = {
-        0: [1, 2],
-        1: [2, 0],
-        2: [0, 1]
-    }
+    idx_rule = {0: [1, 2], 1: [2, 0], 2: [0, 1]}
 
     for idx in range(0, 3):
         idx_1, idx_2 = idx_rule[idx]
@@ -46,11 +45,13 @@ def cross_product(vector_1, vector_2):
 
     return cross_prod
 
+
 def get_point_distance(start_point, coords):
     vector = sum_vectors(coords, start_point, True)
     distance = scalar_product(vector)
 
     return distance
+
 
 def get_plane(normal, vector):
     if abs(scalar_product(normal) - 1.0) > 0.000000001:
@@ -61,6 +62,7 @@ def get_plane(normal, vector):
     equation = {"D": d, "x": normal[0], "y": normal[1], "z": normal[2]}
 
     return equation
+
 
 def get_line_equations(point_1, point_2):
     """
@@ -74,7 +76,7 @@ def get_line_equations(point_1, point_2):
         dx = x_1 - x_2
         dy = y_1 - y_2
         dz = z_1 - z_2
-    
+
     except TypeError as err:
         print("point 1:", point_1, "point 2:", point_2)
         print("Error:", err)
@@ -83,7 +85,7 @@ def get_line_equations(point_1, point_2):
     def get_line_equation(delta_1, delta_2, coord_1, coord_2):
         # Calculates line equation and handles infinite or zero delta_2 / delta_1
         # returning None as the coefficient if infinite
-        
+
         if delta_1 != 0.0 and delta_2 != 0.0:
             coeff = delta_2 / delta_1
             const = coord_2 - coord_1 * coeff
@@ -113,14 +115,16 @@ def get_line_equations(point_1, point_2):
 
     return equations
 
+
 def apply_equation(coord, eqns, key):
     coeff, const = eqns[key]["coeff"], eqns[key]["const"]
     if coeff != None:
         val = coeff * coord + const
     else:
         val = const
-    
+
     return val
+
 
 def plane_line_interesect(plane, line_eqns, is_flat=True):
     """
@@ -131,48 +135,32 @@ def plane_line_interesect(plane, line_eqns, is_flat=True):
             "eqn": "y_x",
             "inv_eqn": "x_z",
             "plane_coeffs": ["x", "y", "z"],
-            "line_eqns": ["y_x", "z_y", "z_x"]
+            "line_eqns": ["y_x", "z_y", "z_x"],
         },
         "z_y": {
             "eqn": "z_y",
             "inv_eqn": "y_x",
             "plane_coeffs": ["y", "z", "x"],
-            "line_eqns": ["z_y", "x_z", "y_x"]
+            "line_eqns": ["z_y", "x_z", "y_x"],
         },
         "x_z": {
             "eqn": "x_z",
             "inv_eqn": "z_y",
             "plane_coeffs": ["z", "x", "y"],
-            "line_eqns": ["x_z", "y_x", "z_y"]
+            "line_eqns": ["x_z", "y_x", "z_y"],
         },
     }
     coord = None
     eqn_used = ""
-    coords = {
-        "x": None,
-        "y": None,
-        "z": None
-    }
+    coords = {"x": None, "y": None, "z": None}
 
-    axis_order = [
-        "x",
-        "y",
-        "z"
-    ]
+    axis_order = ["x", "y", "z"]
 
     # mapping to show which value has been found from the given equation
-    axes_to_eqn = {
-        "y_x": "y",
-        "z_y": "z",
-        "x_z": "x"
-    }
+    axes_to_eqn = {"y_x": "y", "z_y": "z", "x_z": "x"}
 
     # mapping to show which value has been found by inverting the given equation
-    axis_invert = {
-        "y_x": "x",
-        "z_y": "y",
-        "x_z": "z"
-    }
+    axis_invert = {"y_x": "x", "z_y": "y", "x_z": "z"}
 
     eqns_to_calc = []
 
@@ -192,7 +180,7 @@ def plane_line_interesect(plane, line_eqns, is_flat=True):
     for value in coords.values():
         # Check which coords need to be found
         if value != None:
-            found_count +=1
+            found_count += 1
 
     print("found count:", found_count)
 
@@ -221,41 +209,39 @@ def plane_line_interesect(plane, line_eqns, is_flat=True):
 
     return values
 
-def get_intersect_coord(map_dict, plane, line_eqns): 
+
+def get_intersect_coord(map_dict, plane, line_eqns):
     plane_1, plane_2, plane_3 = map_dict["plane_coeffs"]
     inv_eqn = invert_equation(line_eqns[map_dict["inv_eqn"]])
     eqn = line_eqns[map_dict["eqn"]]
     if inv_eqn["coeff"] != None:
         numerator = (
-            plane["D"] - plane[plane_2] * eqn["const"] + plane[plane_3] * inv_eqn["const"]
+            plane["D"]
+            - plane[plane_2] * eqn["const"]
+            + plane[plane_3] * inv_eqn["const"]
         )
-        axis_val =  numerator / (
-            plane[plane_1] + plane[plane_2] * eqn["coeff"] + plane[plane_3] * inv_eqn["coeff"]
+        axis_val = numerator / (
+            plane[plane_1]
+            + plane[plane_2] * eqn["coeff"]
+            + plane[plane_3] * inv_eqn["coeff"]
         )
     else:
         axis_val = None
 
     return axis_val
 
+
 def invert_equation(eqn):
     coeff, const = eqn["coeff"], eqn["const"]
     if coeff != None and coeff != 0.0:
-        inv_eqn = {
-            "coeff": 1 / coeff,
-            "const": const / coeff
-        }
+        inv_eqn = {"coeff": 1 / coeff, "const": const / coeff}
     elif coeff == None:
-        inv_eqn = {
-            "coeff": 0.0,
-            "const": const
-        }
+        inv_eqn = {"coeff": 0.0, "const": const}
     else:
-        inv_eqn = {
-            "coeff": None,
-            "const": const
-        }
+        inv_eqn = {"coeff": None, "const": const}
 
     return inv_eqn
+
 
 def get_last_intersect_coord(plane, coords, eqns):
     """
@@ -280,29 +266,29 @@ def get_last_intersect_coord(plane, coords, eqns):
         eqns_to_axes = {
             "y": [{"y_x": x_idx}, {"z_y": z_idx}],
             "z": [{"z_y": y_idx}, {"x_z": x_idx}],
-            "x": [{"x_z": z_idx}, {"y_x": y_idx}]
+            "x": [{"x_z": z_idx}, {"y_x": y_idx}],
         }
 
         eqn_to_axis = eqns_to_axes[axis_to_find]
         for idx in range(0, len(eqn_to_axis)):
-            # Case that we can use the equation and not the inverse one. If we can use the 1st dict in the array. 
+            # Case that we can use the equation and not the inverse one. If we can use the 1st dict in the array.
 
-                eqn_to_use_key = list(eqn_to_axis[idx].keys())[0]
-                print(eqn_to_use_key)
-                coord_idx = eqn_to_axis[idx][eqn_to_use_key]
-                if idx == 0:
-                    eqn_for_axis = eqns[eqn_to_use_key]
-                else:
-                    eqn_for_axis = invert_equation(eqns[eqn_to_use_key])
-                    print("inverted equation:", eqn_for_axis)
+            eqn_to_use_key = list(eqn_to_axis[idx].keys())[0]
+            print(eqn_to_use_key)
+            coord_idx = eqn_to_axis[idx][eqn_to_use_key]
+            if idx == 0:
+                eqn_for_axis = eqns[eqn_to_use_key]
+            else:
+                eqn_for_axis = invert_equation(eqns[eqn_to_use_key])
+                print("inverted equation:", eqn_for_axis)
 
-                # If the coeff is Inf (None) then skip and use inverse instead
-                if eqn_for_axis["coeff"] == None:
-                    continue
-                else:
-                    coords[axis_to_find] = eqn_for_axis["coeff"] * coords[coord_idx]
-                    break
-    
+            # If the coeff is Inf (None) then skip and use inverse instead
+            if eqn_for_axis["coeff"] == None:
+                continue
+            else:
+                coords[axis_to_find] = eqn_for_axis["coeff"] * coords[coord_idx]
+                break
+
     print("coords:", coords)
 
     # try:
@@ -315,6 +301,7 @@ def get_last_intersect_coord(plane, coords, eqns):
     #     raise err
 
     return coords
+
 
 # def get_point_along_line(eqn, vertices, angles):
 #     """
@@ -330,6 +317,7 @@ def check_coords_in_plane(plane, coords):
     d = plane["x"] * coords[0] + plane["y"] * coords[1] + plane["z"] * coords[2]
     return D, d
 
+
 def get_normal(vector_1, vector_2):
     perp_vector = cross_product(vector_1, vector_2)
     length = scalar_product(perp_vector)
@@ -342,11 +330,13 @@ def get_normal(vector_1, vector_2):
 
     return normal
 
+
 def normalise_vector(vector):
     length = scalar_product(vector)
     normal = list(map(lambda a: a / length, vector))
 
     return normal
+
 
 def sum_vectors(vec_1, vec_2, subtract=False):
     """
@@ -359,10 +349,12 @@ def sum_vectors(vec_1, vec_2, subtract=False):
 
     return vec_sum
 
+
 def scale_vector(vector, scale):
     scaled_vector = list(map(lambda a: a * scale, vector))
 
     return scaled_vector
+
 
 def vector_ang(vec_1, vec_2, in_degrees=True):
     """
@@ -387,9 +379,10 @@ def vector_ang(vec_1, vec_2, in_degrees=True):
     else:
         ang_1 = math.acos(cos_ang_1)
 
-    return(ang_1)
+    return ang_1
 
-class Rotate():
+
+class Rotate:
     def __init__(self):
         self._create_rotation_matrix()
 
@@ -400,28 +393,28 @@ class Rotate():
 
         def return_0(val, neg=False):
             return 0
-        
+
         def return_1(val, neg=False):
             return 1
 
         rotate_x = [
             [(return_1, 1), (return_0, 1), (return_0, 1)],
             [(return_0, 1), (cos, 1), (sin, -1)],
-            [(return_0, 1), (sin, 1), (cos, 1)]
+            [(return_0, 1), (sin, 1), (cos, 1)],
         ]
 
         rotate_y = [
             [(cos, 1), (return_0, 1), (sin, 1)],
             [(return_0, 1), (return_1, 1), (return_0, 1)],
-            [(sin, 1), (return_0, 1), (cos, 1)]
+            [(sin, 1), (return_0, 1), (cos, 1)],
         ]
 
         rotate_z = [
             [(cos, 1), (sin, -1), (return_0, 1)],
             [(sin, 1), (cos, 1), (return_0, 1)],
-            [(return_0, 1), (return_0, 1), (return_1, 1)]
+            [(return_0, 1), (return_0, 1), (return_1, 1)],
         ]
-    
+
         self.rotate_matrix = [rotate_x, rotate_y, rotate_z]
 
     def rotate_data(self, coords, angle, offset=[0, 0, 0]):
@@ -431,12 +424,19 @@ class Rotate():
         translated_point = sum_vectors(coords, offset, True)
 
         def apply_matrix(matrix, angle, coords):
-            coords = list(map(lambda a: sum(map(lambda b, c: b[0](angle) * b[1] * c, a, coords)), matrix))
+            coords = list(
+                map(
+                    lambda a: sum(map(lambda b, c: b[0](angle) * b[1] * c, a, coords)),
+                    matrix,
+                )
+            )
             return coords
 
         for idx in range(0, len(angle)):
             if angle[idx] != 0:
-                translated_point = apply_matrix(self.rotate_matrix[idx], angle[idx], translated_point)
+                translated_point = apply_matrix(
+                    self.rotate_matrix[idx], angle[idx], translated_point
+                )
 
         coords = list(sum_vectors(offset, translated_point))
 
@@ -449,18 +449,26 @@ class Rotate():
         translated_point = sum_vectors(coords, offset, True)
 
         def apply_matrix(matrix, angle, coords):
-            coords = list(map(lambda a: sum(map(lambda b, c: b[0](angle) * b[1] * c, a, coords)), matrix))
+            coords = list(
+                map(
+                    lambda a: sum(map(lambda b, c: b[0](angle) * b[1] * c, a, coords)),
+                    matrix,
+                )
+            )
             return coords
 
         for idx in range(len(angle) - 1, -1, -1):
             if angle[idx] != 0:
-                translated_point = apply_matrix(self.rotate_matrix[idx], -1 * angle[idx], translated_point)
+                translated_point = apply_matrix(
+                    self.rotate_matrix[idx], -1 * angle[idx], translated_point
+                )
 
         coords = list(sum_vectors(offset, translated_point))
 
         return coords
 
-class ConePlane():
+
+class ConePlane:
     def __init__(self, cone_angle):
         self.rotate = Rotate()
         self.cone_angle = cone_angle
@@ -470,46 +478,36 @@ class ConePlane():
                 "eqn": "y_x",
                 "inv_eqn": "x_z",
                 "plane_coeffs": ["x", "y", "z"],
-                "line_eqns": ["y_x", "z_y", "z_x"]
+                "line_eqns": ["y_x", "z_y", "z_x"],
             },
             "z_y": {
                 "eqn": "z_y",
                 "inv_eqn": "y_x",
                 "plane_coeffs": ["y", "z", "x"],
-                "line_eqns": ["z_y", "x_z", "y_x"]
+                "line_eqns": ["z_y", "x_z", "y_x"],
             },
             "x_z": {
                 "eqn": "x_z",
                 "inv_eqn": "z_y",
                 "plane_coeffs": ["z", "x", "y"],
-                "line_eqns": ["x_z", "y_x", "z_y"]
+                "line_eqns": ["x_z", "y_x", "z_y"],
             },
         }
-        self.axis_order = [
-            "x",
-            "y",
-            "z"
-        ]
+        self.axis_order = ["x", "y", "z"]
 
         # mapping to show which value has been found from the given equation
-        self.axes_to_eqn = {
-            "y_x": "y",
-            "z_y": "z",
-            "x_z": "x"
-        }
+        self.axes_to_eqn = {"y_x": "y", "z_y": "z", "x_z": "x"}
 
         # mapping to show which value has been found by inverting the given equation
-        self.axis_invert = {
-            "y_x": "x",
-            "z_y": "y",
-            "x_z": "z"
-        }
+        self.axis_invert = {"y_x": "x", "z_y": "y", "x_z": "z"}
 
     def _get_equations(self, coords, angle):
         self.rotated_coords = []
         for coord in coords:
             self.rotated_coords.append(self.rotate.unrotate_data(coord, angle))
-        self.equations = get_line_equations(self.rotated_coords[0], self.rotated_coords[1])
+        self.equations = get_line_equations(
+            self.rotated_coords[0], self.rotated_coords[1]
+        )
 
     def _get_intersect_coord(self, mapping):
         """
@@ -528,9 +526,11 @@ class ConePlane():
 
             beta = const_sqrd * self.tan_ang_sqrd - inv_const_sqrd
             omega = coeff_sqrd * self.tan_ang_sqrd - inv_coeff_sqrd - 1
-            rho = 2 * (eqn["coeff"] * eqn["const"] - inv_eqn["coeff"] * inv_eqn["const"])
+            rho = 2 * (
+                eqn["coeff"] * eqn["const"] - inv_eqn["coeff"] * inv_eqn["const"]
+            )
 
-            sqr_to_check = rho ** 2 - 4 * beta * omega
+            sqr_to_check = rho**2 - 4 * beta * omega
             print("sqr_to_check", sqr_to_check)
             if sqr_to_check > 0.0:
                 # TODO - figure out how to know whether to subtract or add due to square root
@@ -572,7 +572,7 @@ class ConePlane():
                 int_coords[axis_to_find].append(math.sqrt(total[i] / self.tan_ang_sqrd))
 
         elif axis_to_find in x_z_axes:
-            del(x_z_axes[x_z_axes.index(axis_to_find)])
+            del x_z_axes[x_z_axes.index(axis_to_find)]
             other_axis = x_z_axes[0]
             print(other_axis)
             print(axis_to_find)
@@ -580,8 +580,11 @@ class ConePlane():
             int_coords[axis_to_find] = []
             idx = self.axis_order.index(axis_to_find)
             for i in range(len(int_coords["y"])):
-                val = math.sqrt(int_coords["y"][i] ** 2 * self.tan_ang_sqrd - int_coords[other_axis][i] ** 2)
-                if orig_coords[i][idx] < 0 :
+                val = math.sqrt(
+                    int_coords["y"][i] ** 2 * self.tan_ang_sqrd
+                    - int_coords[other_axis][i] ** 2
+                )
+                if orig_coords[i][idx] < 0:
                     val *= -1
                 int_coords[axis_to_find].append(val)
 
@@ -594,16 +597,12 @@ class ConePlane():
         """
         self._get_equations(coords, angle)
 
-        intersect_coords = {
-            "x": None,
-            "y": None,
-            "z": None
-        }
+        intersect_coords = {"x": None, "y": None, "z": None}
 
         eqns_to_calc = []
         print(self.equations)
 
-        # Firstly if any coefficients are 0.0 or None (i.e.) infinity we know the values are 
+        # Firstly if any coefficients are 0.0 or None (i.e.) infinity we know the values are
         # always just the consts
         for eqn in self.equations.keys():
             coeff, const = self.equations[eqn]["coeff"], self.equations[eqn]["const"]
@@ -622,7 +621,7 @@ class ConePlane():
         for value in intersect_coords.values():
             # Check how many coords need to be found
             if value != None:
-                found_count +=1
+                found_count += 1
 
         print("found_count", found_count)
 
@@ -648,18 +647,20 @@ class ConePlane():
 
                 elif eqn != "z_y":
                     # Finding y must be done last because the equation for this is different to x, z
-                    intersect_coords[axis] = self._get_intersect_coord(self.mapping[eqn])
+                    intersect_coords[axis] = self._get_intersect_coord(
+                        self.mapping[eqn]
+                    )
             # finally find y values as we have x & z
             intersect_coords = self._get_last_intersect_coord(intersect_coords, coords)
             print(intersect_coords)
 
         # print(intersect_coords)
         values = [intersect_coords[axis] for axis in self.axis_order]
-        values = [[ i for i, j in values ], [ j for i, j in values ]]
-        
+        values = [[i for i, j in values], [j for i, j in values]]
+
         if values[0] == values[1]:
             # if both points are the same delete one
-            del(values[1])
+            del values[1]
 
         print(values)
         valid_points = []
@@ -677,7 +678,9 @@ class ConePlane():
         """
         in_range = []
         for i in range(len(point)):
-            if (point[i] < coords[0][i] and point[i] > coords[1][i]) or (point[i] < coords[1][i] and point[i] > coords[0][i]):
+            if (point[i] < coords[0][i] and point[i] > coords[1][i]) or (
+                point[i] < coords[1][i] and point[i] > coords[0][i]
+            ):
                 in_range.append(True)
 
         if False not in in_range:
