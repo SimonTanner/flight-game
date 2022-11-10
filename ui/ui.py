@@ -6,7 +6,7 @@ sys.path.append("/home/simon/python/flight-game/physics")
 from physics.maths import *
 from physics.physics import *
 
-from ui.triangle import Grid
+from ui.grid import Grid
 
 
 class Game:
