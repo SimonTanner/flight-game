@@ -1,17 +1,20 @@
-import pygame, sys, math, random, traceback, json, os
+import pygame, sys, math, random, traceback, json, os, time, threading
 from pygame.locals import *
 
 # sys.path.append(os.getcwd())
+sys.path.append("/home/simon/python/flight-game/physics")
 from physics.maths import *
 from physics.physics import *
 
+from ui.triangle import Grid
+
 
 class Game:
-    def __init__(self, screen_dims=[1400, 900]):
+    def __init__(self, screen_dims=[1800, 1000], volumes=[1, 1, 1, 1, 1, 1, 1, 1]):
         self.screen_dims = screen_dims
         self.fps = 30  # Frame rate
         self.fps_clock = pygame.time.Clock()
-        self.bkgrnd_colour = (50, 50, 50)
+        self.bkgrnd_colour = (0, 0, 0)
         self.line_colour = (200, 50, 50)
 
         # Instantiate rotation function
@@ -42,10 +45,13 @@ class Game:
         self.ship_base_colour = (200, 50, 150)
         self.ship_turn_rate = math.pi / (self.fps * 5)
         self.hover = False
-        self.align_cam_to_ship = False
+        self.align_cam_to_ship = True
 
         self.time_rate = 1 / self.fps
         self.lines = create_test_data()
+        self.volumes = volumes
+        # self.house = draw_house([0, 0, 0], volumes)
+        self.create_grids()
 
     def initialise_camera(self):
         self.init_cp_normal = list(
@@ -72,6 +78,11 @@ class Game:
             self.init_cp_normal, [-half_fov_ang, 0, 0]
         )
 
+        self.cp_normal_right = self.init_cp_normal_right
+        self.cp_normal_left = self.init_cp_normal_left
+        self.cp_normal_top = self.init_cp_normal_top
+        self.cp_normal_bottom = self.init_cp_normal_bottom
+
         # Rotate all normals to align with the starting camera angle.
         self.camera_ang = self.camera_start_ang
         self.rotate_clipping_plane_normals(self.camera_ang)
@@ -96,14 +107,19 @@ class Game:
         self.blah_point = sum_vectors(self.cp_centre_point, self.perp_vec_cp)
         self.clip_plane = get_plane(self.cp_normal, self.blah_point)
 
-    def rotate_clipping_plane_normals(self, angle):
+    def rotate_clipping_plane_normals(self, angle, all_normals=True):
         self.cp_normal = self.rotate.rotate_data(self.init_cp_normal, angle)
-        self.cp_normal_right = self.rotate.rotate_data(self.init_cp_normal_right, angle)
-        self.cp_normal_left = self.rotate.rotate_data(self.init_cp_normal_left, angle)
-        self.cp_normal_top = self.rotate.rotate_data(self.init_cp_normal_top, angle)
-        self.cp_normal_bottom = self.rotate.rotate_data(
-            self.init_cp_normal_bottom, angle
-        )
+        if all_normals:
+            self.cp_normal_right = self.rotate.rotate_data(
+                self.init_cp_normal_right, angle
+            )
+            self.cp_normal_left = self.rotate.rotate_data(
+                self.init_cp_normal_left, angle
+            )
+            self.cp_normal_top = self.rotate.rotate_data(self.init_cp_normal_top, angle)
+            self.cp_normal_bottom = self.rotate.rotate_data(
+                self.init_cp_normal_bottom, angle
+            )
 
     def rotate_camera(self, angle):
         """
@@ -120,7 +136,12 @@ class Game:
         self.get_clip_plane()
 
     def convert_to_perspective(self, objs, is_dict=False):
-        """Calculate the scale required to translate between real coords & screen coords"""
+        """
+        convert geometry coordinates into perspective screen coordinates
+        """
+
+        # Calculate the height of the clipping plane that all points are projected onto
+        # In order to get the required scale for converting to the screen coordinates
         self.plane_height = math.tan(self.fov_ang / 2) * 2
         scr_scale = self.screen_dims[1] / self.plane_height
 
@@ -149,7 +170,10 @@ class Game:
                 angles_from_cp_normal.append(vector_angle)
                 # print("angle to point:", vector_angle)
                 # print("max vis angle:", self.max_vis_angle)
+                # print("y coord:", coord_to_point[1])
+
                 is_in_view = True if vector_angle < self.max_vis_angle else False
+                # print("is_n_view:", is_in_view)
                 points_vis.append(is_in_view)
 
             if True not in points_vis:
@@ -157,6 +181,7 @@ class Game:
                 pass
 
             else:
+                # print("points_vis:", points_vis)
                 if False in points_vis:
                     # In this case a point might be out of view but all other points are in view
                     coords_to_point = self._get_plane_object_intersection(
@@ -229,10 +254,10 @@ class Game:
             max_dz = max_z - visible_coord[2]
             max_angle = math.atan(max_dz / max_dx)
             if angle >= max_angle:
-                print("self.cp_normal_top")
+                # print("self.cp_normal_top")
                 return self.cp_normal_top
             else:
-                print("self.cp_normal_right")
+                # print("self.cp_normal_right")
                 return self.cp_normal_right
 
         elif line_dx <= 0 and line_dz >= 0:
@@ -241,10 +266,10 @@ class Game:
             max_dz = max_z - visible_coord[2]
             max_angle = math.atan(max_dz / max_dx)
             if angle <= max_angle:
-                print("self.cp_normal_top")
+                # print("self.cp_normal_top")
                 return self.cp_normal_top
             else:
-                print("self.cp_normal_left")
+                # print("self.cp_normal_left")
                 return self.cp_normal_left
 
         elif line_dx <= 0 and line_dz <= 0:
@@ -254,10 +279,10 @@ class Game:
             max_angle = math.atan(max_dz / max_dx)
 
             if angle >= max_angle:
-                print("self.cp_normal_bottom")
+                # print("self.cp_normal_bottom")
                 return self.cp_normal_bottom
             else:
-                print("self.cp_normal_left")
+                # print("self.cp_normal_left")
                 return self.cp_normal_left
 
         elif line_dx >= 0 and line_dz <= 0:
@@ -267,31 +292,31 @@ class Game:
             max_angle = math.atan(max_dz / max_dx)
 
             if angle <= max_angle:
-                print("self.cp_normal_bottom")
+                # print("self.cp_normal_bottom")
                 return self.cp_normal_bottom
             else:
-                print("self.cp_normal_right")
+                # print("self.cp_normal_right")
                 return self.cp_normal_right
 
-        print(
-            "angle:",
-            angle * 180 / math.pi,
-            "\nmax angle:",
-            max_angle * 180 / math.pi,
-            "\nline dx:",
-            line_dx,
-            "\nline dz:",
-            line_dz,
-            "\nmax_x:",
-            max_x,
-            "\nmax_z:",
-            max_z,
-            "\nmax_dx:",
-            max_dx,
-            "\nmax_dz:",
-            max_dz,
-            "\n\n",
-        )
+        # print(
+        #     "angle:",
+        #     angle * 180 / math.pi,
+        #     "\nmax angle:",
+        #     max_angle * 180 / math.pi,
+        #     "\nline dx:",
+        #     line_dx,
+        #     "\nline dz:",
+        #     line_dz,
+        #     "\nmax_x:",
+        #     max_x,
+        #     "\nmax_z:",
+        #     max_z,
+        #     "\nmax_dx:",
+        #     max_dx,
+        #     "\nmax_dz:",
+        #     max_dz,
+        #     "\n\n",
+        # )
 
     def _get_plane_object_intersection(self, coords, points_vis, angles_from_cp_normal):
         """
@@ -309,14 +334,6 @@ class Game:
         start_val = idx - 1 if idx - 1 >= 0 else no_vertices - 1
         end_val = idx + 1 if idx + 1 <= no_vertices - 1 else 0
 
-        # dist_to_point = scalar_product(coords[idx])
-        # height = dist_to_point * math.sin(angles_from_cp_normal[idx])
-        # cp_dist = height / math.tan(self.max_vis_angle)
-        # cp_coords = scale_vector(self.cp_normal, cp_dist)
-
-        # clip_plane = get_plane(self.cp_normal, cp_coords)
-        # print("clipping plane_normal:", self.cp_normal)
-
         if start_val != end_val:
             points_idx = [start_val, end_val]
         else:
@@ -324,11 +341,11 @@ class Game:
 
         invisible_coord = coords[idx]
 
-        print("coords:", coords)
-        print("invisible_coord:", invisible_coord)
+        # print("coords:", coords)
+        # print("invisible_coord:", invisible_coord)
 
         for point_idx in points_idx:
-            print("visible_coord:", coords[point_idx])
+            # print("visible_coord:", coords[point_idx])
             clip_plane = self.get_perspective_intersection_plane(
                 coords[point_idx], invisible_coord
             )
@@ -444,18 +461,23 @@ class Game:
         if line_thickness > 0:
             pygame.draw.polygon(self.display_surface, line_colour, face, line_thickness)
 
-    def draw_lines(self, coords, colour=None):
-        for coord in coords:
+    def draw_lines(self, coords, colours=[], colour=None):
+        len_colours = len(colours)
+        for idx in range(0, len(coords)):
             # print(coord)
-            self.draw_line(coord[0], coord[1], colour)
+            if idx < len_colours:
+                colour = colours[idx]
+            print("line_colour:", colour)
+            self.draw_line(coords[idx][0], coords[idx][1], colour)
 
     def draw_line(self, start_coords, end_coords, colour=None):
         if colour == None:
             colour = self.line_colour
-        pygame.draw.line(self.display_surface, colour, start_coords, end_coords)
+        pygame.draw.aaline(self.display_surface, colour, start_coords, end_coords)
 
     def load_ship(self, filename, folder):
-        file_path = os.path.join(os.getcwd(), folder + filename)
+        # file_path = os.path.join(os.getcwd(), folder + filename)
+        file_path = "/home/simon/python/flight-game/3d/ship/ship-geometry.json"
         with open(file_path, "r") as file:
             self.ship_data = json.load(file)
             file.close()
@@ -488,9 +510,9 @@ class Game:
 
         self.hover_ship()
 
-        self.ship_data_positioned, _ = self.draw_object(
-            self.ship_data["faces"], self.ship_start_pos, self.ship_angle
-        )
+        # self.ship_data_positioned, _ = self.draw_object(
+        #     self.ship_data["faces"], self.ship_start_pos, self.ship_angle
+        # )
 
     def align_camera_to_ship(self):
         if self.align_cam_to_ship is True:
@@ -561,7 +583,7 @@ class Game:
                 self.screen_dims = [event.w, event.h]
                 # to reset the scale when resizing add scale var below
                 self.display_surface = pygame.display.set_mode(
-                    self.screen_dims, pygame.RESIZABLE | pygame.DOUBLEBUF, 32
+                    self.screen_dims, pygame.RESIZABLE | pygame.FULLSCREEN, 32
                 )
                 self.display_surface.fill(self.bkgrnd_colour)
                 # Recalculate the maximum angle that an object is visible due to scren size change
@@ -605,21 +627,69 @@ class Game:
                         True if self.align_cam_to_ship == False else False
                     )
 
-    def main(self):
-        # Main game loop
-        self.init_game()
-        counter = 0
+    def set_volumes(self, volumes):
+        self.volumes = volumes
+
+    # def draw_houses(self):
+    #     no_houses = 5
+    #     dist = 20
+    #     colours = get_house_colours(self.volumes)
+    #     for idx_x in range(-no_houses, no_houses):
+    #         x = dist * idx_x
+    #         for idx_y in range(-no_houses, no_houses):
+    #             y = dist * idx_y
+    #             house = draw_house(self.volumes, [x, y, 0])
+    #             converted_house = self.convert_to_perspective(house)
+    #             self.draw_lines(converted_house, colours)
+
+    def create_grids(self):
+        self.grids = []
+        no_grids = 3
+        dist = 20
+        for idx_x in range(-no_grids, no_grids):
+            x = dist * idx_x
+            for idx_y in range(-no_grids, no_grids):
+                y = dist * idx_y
+                for idx_z in range(-no_grids, no_grids):
+                    z = dist * idx_z
+                    grid = Grid([x, y, z], self.fps, self.volumes)
+                    self.grids.append(grid)
+                    print("colours:", grid.get_colours())
+
+    def draw_grids(self):
+        if len(self.grids) != 0:
+            for grid in self.grids:
+                grid.update_grid(self.volumes)
+                converted_grids = self.convert_to_perspective(grid.get_grid())
+                # print("converted_grids", grid.get_grid())
+                self.draw_lines(converted_grids, grid.get_colours())
+
+    def main_loop(self, start_time):
         while True:
             try:
                 self.display_surface.fill(self.bkgrnd_colour)
                 self.align_camera_to_ship()
+
+                # houses = threading.Thread(target=self.draw_houses)
+                # houses.start()
+                # self.draw_houses()
+
+                self.draw_grids()
+
                 converted_coords = self.convert_to_perspective(self.lines)
                 self.draw_lines(converted_coords)
                 self.handle_events(pygame.event.get())
+
                 # Render ship
                 self.render_ship()
                 pygame.display.flip()
                 self.fps_clock.tick(self.fps)
+                end_time = time.time()
+                self.counter += 1
+                total_time = end_time - start_time
+                # print("counter:", self.counter, "time:", total_time)
+                # if self.counter > 30:
+                #     break
 
             except Exception as error:
                 print(error)
@@ -630,21 +700,31 @@ class Game:
                 #     json.dump(self.ship_data_positioned, file, indent=4)
                 #     file.close()
                 break
+            # print("counter:", self.counter, "time:", total_time)
+
+    def main(self):
+        # Main game loop
+        self.init_game()
+        self.counter = 0
+        start_time = time.time()
+
+        x = threading.Thread(target=self.main_loop, args=(start_time,))
+        x.start()
 
 
 def create_test_data():
     lines = []
 
     # draw horizontal lines
-    no_y_lines = 10
-    dist_between = 2.0
-    for i in range(1, no_y_lines):
-        # y = i - no_y_lines / 2 * dist_between
-        y = i * dist_between
-        lines.append([[-10.0, y, 0.0], [10.0, y, 0.0]])
+    # no_y_lines = 10
+    # dist_between = 2.0
+    # for i in range(1, no_y_lines):
+    #     # y = i - no_y_lines / 2 * dist_between
+    #     y = i * dist_between
+    #     lines.append([[-10.0, y, 0.0], [10.0, y, 0.0]])
 
     # draw lines along y plane
-    no_x_lines = 10
+    no_x_lines = 2
     dist_between = 2.0
     for i in range(0, no_x_lines, 1):
         x = (i - no_x_lines / 2) * dist_between
@@ -660,12 +740,63 @@ def create_test_data():
     #     z_2 = z_1 + 1.0
     #     lines.append([[x, y, 0.0], [x, y, z_2]])
 
-    for i in range(0, 10):
-        lines.append([[5.0, 5 + i, -10.0], [5.0, 5 + i, 6.0]])
-        lines.append([[-5.0, 5 + i, 0.0], [-5.0, 5 + i, 6.0]])
-        lines.append([[0.05, 5 + i, 10.0], [-5.0, 5 + i, 6.0]])
-        lines.append([[5.0, 5 + i, 6.0], [0.05, 5 + i, 10.0]])
-
     # print(lines)
 
     return lines
+
+
+def draw_house(volumes, start_position=[0, 0, 0]):
+    lines = []
+    wall_left_vec = [0, 0, 6.0]
+    wall_right_vec = [0, 0, 6.0]
+    roof_left_vec = [-5.0, 0, 4.0]
+    roof_right_vec = [5.0, 0, 4.0]
+
+    for i in range(0, 10):
+        y_pos = 5 + i
+        wall_left_pos = sum_vectors([5.0, y_pos, 0.0], start_position)
+        wall_right_pos = sum_vectors([-5.0, y_pos, 0.0], start_position)
+        roof_left_pos = sum_vectors([5.0, y_pos, 6.0], start_position)
+        roof_right_pos = sum_vectors([-5.0, y_pos, 6.0], start_position)
+        lines.append(
+            [
+                wall_left_pos,
+                sum_vectors(
+                    wall_left_pos, scale_vector(wall_left_vec, 10 * volumes[0])
+                ),
+            ]
+        )
+        lines.append(
+            [
+                wall_right_pos,
+                sum_vectors(
+                    wall_right_pos, scale_vector(wall_right_vec, 10 * volumes[1])
+                ),
+            ]
+        )
+        lines.append(
+            [
+                roof_left_pos,
+                sum_vectors(roof_left_pos, scale_vector(roof_left_vec, 1 * volumes[2])),
+            ]
+        )
+        lines.append(
+            [
+                roof_right_pos,
+                sum_vectors(
+                    roof_right_pos, scale_vector(roof_right_vec, 1 * volumes[3])
+                ),
+            ]
+        )
+    return lines
+
+
+def get_house_colours(volumes):
+    colours = [
+        [200 * volumes[0], 50 * volumes[0], 30 * volumes[1]],
+        [200 * volumes[2], 50 * volumes[0], 200 * volumes[0]],
+        [200 * volumes[3], 50 * volumes[1], 30 * volumes[2]],
+        [100 * volumes[2], 200 * volumes[0], 30 * volumes[1]],
+    ]
+
+    return colours

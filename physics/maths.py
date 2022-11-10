@@ -78,8 +78,8 @@ def get_line_equations(point_1, point_2):
         dz = z_1 - z_2
 
     except TypeError as err:
-        print("point 1:", point_1, "point 2:", point_2)
-        print("Error:", err)
+        # print("point 1:", point_1, "point 2:", point_2)
+        # print("Error:", err)
         sys.exit()
 
     def get_line_equation(delta_1, delta_2, coord_1, coord_2):
@@ -111,7 +111,7 @@ def get_line_equations(point_1, point_2):
         "z_y": {"coeff": dz_dy, "const": c_y},
         "x_z": {"coeff": dx_dz, "const": c_z},
     }
-    print("line eqns:", equations)
+    # print("line eqns:", equations)
 
     return equations
 
@@ -182,7 +182,7 @@ def plane_line_interesect(plane, line_eqns, is_flat=True):
         if value != None:
             found_count += 1
 
-    print("found count:", found_count)
+    # print("found count:", found_count)
 
     if found_count == 2:
         # Case we already have 2 coords i.e due to 2 eqns of the form y = constant
@@ -249,12 +249,12 @@ def get_last_intersect_coord(plane, coords, eqns):
     and can easily calculate the 3rd using the 2 coords & the plane equation
     """
     axes_found = []
+    total = 0.0
     for axis, value in coords.items():
         if value is None:
             axis_to_find = axis
         else:
             axes_found.append(axis)
-    total = 0.0
 
     for axis in axes_found:
         total += plane[axis] * coords[axis]
@@ -262,42 +262,46 @@ def get_last_intersect_coord(plane, coords, eqns):
     if plane[axis_to_find] != 0.0:
         coords[axis_to_find] = (plane["D"] - total) / plane[axis_to_find]
     else:
-        x_idx, y_idx, z_idx = 0, 1, 2
+        x_idx, y_idx, z_idx = "x", "y", "z"
         eqns_to_axes = {
             "y": [{"y_x": x_idx}, {"z_y": z_idx}],
             "z": [{"z_y": y_idx}, {"x_z": x_idx}],
             "x": [{"x_z": z_idx}, {"y_x": y_idx}],
         }
+        # print("plane eqn:", plane)
+        # print("coords:", coords)
 
         eqn_to_axis = eqns_to_axes[axis_to_find]
         for idx in range(0, len(eqn_to_axis)):
             # Case that we can use the equation and not the inverse one. If we can use the 1st dict in the array.
 
             eqn_to_use_key = list(eqn_to_axis[idx].keys())[0]
-            print(eqn_to_use_key)
+            # print(eqn_to_use_key)
             coord_idx = eqn_to_axis[idx][eqn_to_use_key]
             if idx == 0:
                 eqn_for_axis = eqns[eqn_to_use_key]
             else:
                 eqn_for_axis = invert_equation(eqns[eqn_to_use_key])
-                print("inverted equation:", eqn_for_axis)
+                # print("inverted equation", eqn_to_use_key, ":", eqn_for_axis)
 
             # If the coeff is Inf (None) then skip and use inverse instead
             if eqn_for_axis["coeff"] == None:
                 continue
             else:
-                coords[axis_to_find] = eqn_for_axis["coeff"] * coords[coord_idx]
+                coords[axis_to_find] = (
+                    eqn_for_axis["coeff"] * coords[coord_idx] + eqn_for_axis["const"]
+                )
                 break
 
-    print("coords:", coords)
+        # print("coords:", coords)
 
-    # try:
-    #     coords[axis_to_find] = (plane["D"] - total) / plane[axis_to_find]
+        # try:
+        #     coords[axis_to_find] = (plane["D"] - total) / plane[axis_to_find]
 
-    # except ZeroDivisionError as err:
-    #     print("axes found:", axes_found)
-    #     print("plane:", plane)
-    #     print("coords:", coords)
+        # except ZeroDivisionError as err:
+        # print("axes found:", axes_found)
+        # print("plane:", plane)
+        # print("coords:", coords)
     #     raise err
 
     return coords
@@ -321,11 +325,11 @@ def check_coords_in_plane(plane, coords):
 def get_normal(vector_1, vector_2):
     perp_vector = cross_product(vector_1, vector_2)
     length = scalar_product(perp_vector)
-    if length <= 0.0:
-        print("---------get_normal---------")
-        print(vector_1)
-        print(vector_2)
-        print("---------get_normal---------")
+    # if length <= 0.0:
+    # print("---------get_normal---------")
+    # print(vector_1)
+    # print(vector_2)
+    # print("---------get_normal---------")
     normal = list(map(lambda a: a / length, perp_vector))
 
     return normal
@@ -516,7 +520,7 @@ class ConePlane:
         axis_vals = []
         inv_eqn = invert_equation(self.equations[mapping["inv_eqn"]])
         eqn = self.equations[mapping["eqn"]]
-        print("USING equation:", mapping["eqn"])
+        # print("USING equation:", mapping["eqn"])
 
         if inv_eqn["coeff"] != None:
             coeff_sqrd = eqn["coeff"] ** 2
@@ -531,7 +535,7 @@ class ConePlane:
             )
 
             sqr_to_check = rho**2 - 4 * beta * omega
-            print("sqr_to_check", sqr_to_check)
+            # print("sqr_to_check", sqr_to_check)
             if sqr_to_check > 0.0:
                 # TODO - figure out how to know whether to subtract or add due to square root
                 axis_val = (-rho + math.sqrt(sqr_to_check)) / (2 * omega)
@@ -539,7 +543,7 @@ class ConePlane:
                 axis_val = (-rho - math.sqrt(sqr_to_check)) / (2 * omega)
                 axis_vals.append(axis_val)
 
-        print("axis vals", axis_vals)
+        # print("axis vals", axis_vals)
 
         return axis_vals
 
@@ -551,7 +555,7 @@ class ConePlane:
         axes_found = []
         total = [0.0, 0.0]
         x_z_axes = ["x", "z"]
-        print(int_coords)
+        # print(int_coords)
 
         for axis, values in int_coords.items():
             if values is None:
@@ -559,7 +563,7 @@ class ConePlane:
             else:
                 axes_found.append(axis)
 
-        print("axis_to_find", axis_to_find)
+        # print("axis_to_find", axis_to_find)
 
         if axis_to_find == "y":
             # Because the cone is aligned with the y axis the plane has the coefficient
@@ -574,8 +578,8 @@ class ConePlane:
         elif axis_to_find in x_z_axes:
             del x_z_axes[x_z_axes.index(axis_to_find)]
             other_axis = x_z_axes[0]
-            print(other_axis)
-            print(axis_to_find)
+            # print(other_axis)
+            # print(axis_to_find)
 
             int_coords[axis_to_find] = []
             idx = self.axis_order.index(axis_to_find)
@@ -600,7 +604,7 @@ class ConePlane:
         intersect_coords = {"x": None, "y": None, "z": None}
 
         eqns_to_calc = []
-        print(self.equations)
+        # print(self.equations)
 
         # Firstly if any coefficients are 0.0 or None (i.e.) infinity we know the values are
         # always just the consts
@@ -623,7 +627,7 @@ class ConePlane:
             if value != None:
                 found_count += 1
 
-        print("found_count", found_count)
+        # print("found_count", found_count)
 
         if found_count == 2:
             # Case we already have 2 coords i.e due to 2 eqns of the form y = constant
@@ -631,9 +635,9 @@ class ConePlane:
         elif found_count == 1:
             # Case we only have 1 coord
             eqn = eqns_to_calc[0]
-            print("EQN to find:", eqn)
+            # print("EQN to find:", eqn)
             axis = self.axis_invert[eqn]
-            print("Axis to find:", axis)
+            # print("Axis to find:", axis)
             intersect_coords[axis] = self._get_intersect_coord(self.mapping[eqn])
             intersect_coords = self._get_last_intersect_coord(intersect_coords, coords)
 
@@ -652,7 +656,7 @@ class ConePlane:
                     )
             # finally find y values as we have x & z
             intersect_coords = self._get_last_intersect_coord(intersect_coords, coords)
-            print(intersect_coords)
+            # print(intersect_coords)
 
         # print(intersect_coords)
         values = [intersect_coords[axis] for axis in self.axis_order]
@@ -662,13 +666,13 @@ class ConePlane:
             # if both points are the same delete one
             del values[1]
 
-        print(values)
+        # print(values)
         valid_points = []
         for value in values:
             if self.check_point(coords, value):
                 valid_points.append(value)
 
-        print(valid_points)
+        # print(valid_points)
 
         return valid_points
 

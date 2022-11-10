@@ -1,6 +1,7 @@
 import math
 
-from physics.maths import *
+from .maths import *
+
 
 def calc_surface_drag(surface, velocity, density):
     surf_area, perp_vector = calc_surface_area(surface)
@@ -9,9 +10,11 @@ def calc_surface_drag(surface, velocity, density):
 
     return drag
 
+
 def get_accel_vector(force_vector, mass):
     accel_vec = scale_vector(force_vector, 1 / mass)
     return accel_vec
+
 
 def get_velocity_change(force_vector, mass, dt):
     a = [0.0, 0.0, -9.81]
