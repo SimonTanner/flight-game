@@ -26,7 +26,7 @@ class Game:
         self.fov_ang = math.pi / 2
         # angle between the z-axis and the centre of view
         self.camera_start_ang = [-math.pi / 6, 0, 0]
-        self.cam_ang_rate = math.pi / (self.fps * 5)
+        self.cam_ang_rate = math.pi / (self.fps * 10)
         # Perpendicular distance from camera to clipping plane
         self.dist_clip_plane = 0.5
         self.initialise_camera()
@@ -51,7 +51,6 @@ class Game:
         self.lines = create_test_data()
         self.volumes = volumes
         # self.house = draw_house([0, 0, 0], volumes)
-        self.create_grids()
 
     def initialise_camera(self):
         self.init_cp_normal = list(
@@ -90,6 +89,9 @@ class Game:
         self.init_perp_cp_vector()
         # print(self.perp_vec_cp)
         self.get_clip_plane()
+
+        self.grids = []
+        self.houses = []
 
     def get_max_visible_angle(self):
         max_h = math.tan(self.fov_ang / 2)
@@ -402,7 +404,7 @@ class Game:
             colour = 255
         return colour
 
-    def position_geometry(self, objs, position, angle=(0, 0, 0)):
+    def position_polygon(self, objs, position, angle=(0, 0, 0)):
         """
         transforms geometry of an object to it's "real" world coordinates given a position &
         angle coordinates
@@ -432,7 +434,10 @@ class Game:
         return obj["distance"]
 
     def draw_object(self, geometry, position, angle=(0, 0, 0)):
-        positioned_geometry = self.position_geometry(geometry, position, angle)
+        """
+        transforms geometry of an object to perspective and
+        """
+        positioned_geometry = self.position_polygon(geometry, position, angle)
         perspective_geometry = self.convert_to_perspective(
             positioned_geometry, is_dict=True
         )
@@ -461,19 +466,41 @@ class Game:
         if line_thickness > 0:
             pygame.draw.polygon(self.display_surface, line_colour, face, line_thickness)
 
-    def draw_lines(self, coords, colours=[], colour=None):
+    # def draw_lines_shaded_by_distance(self, geometry, position, angle=(0, 0, 0)):
+    #     """
+    #     transforms geometry of an object to perspective and
+    #     """
+    #     positioned_geometry = self.position_polygon(geometry, position, angle)
+    #     perspective_geometry = self.convert_to_perspective(
+    #         geometry, is_dict=True
+    #     )
+
+    #     for geometry in perspective_geometry:
+    #         geometry.get_position()
+
+    #         colour = self.calc_light_colour(
+    #             self.light_direction, normal, self.ship_base_colour
+    #         )
+
+    #     return positioned_geometry, perspective_geometry
+
+    def draw_lines(self, coords, colours=[], thickness=1):
         len_colours = len(colours)
+        if len_colours == 0:
+            colour = self.line_colour
         for idx in range(0, len(coords)):
             # print(coord)
             if idx < len_colours:
                 colour = colours[idx]
-            print("line_colour:", colour)
-            self.draw_line(coords[idx][0], coords[idx][1], colour)
+            # print("line_colour:", colour)
+            self.draw_line(coords[idx][0], coords[idx][1], colour, thickness)
 
-    def draw_line(self, start_coords, end_coords, colour=None):
+    def draw_line(self, start_coords, end_coords, colour=None, thickness=1):
         if colour == None:
             colour = self.line_colour
-        pygame.draw.aaline(self.display_surface, colour, start_coords, end_coords)
+        pygame.draw.line(
+            self.display_surface, colour, start_coords, end_coords, thickness
+        )
 
     def load_ship(self, filename, folder):
         # file_path = os.path.join(os.getcwd(), folder + filename)
@@ -627,6 +654,20 @@ class Game:
                         True if self.align_cam_to_ship == False else False
                     )
 
+                elif key == K_g:
+                    if len(self.grids) == 0:
+                        self.create_grids()
+                    else:
+                        self.grids = []
+
+                elif key == K_s:
+                    if len(self.grids) != 0:
+                        self.synchronise_objects(self.grids)
+
+                elif key == K_w:
+                    if len(self.grids) != 0:
+                        self.objects_rotate(self.grids)
+
     def set_volumes(self, volumes):
         self.volumes = volumes
 
@@ -642,6 +683,14 @@ class Game:
     #             converted_house = self.convert_to_perspective(house)
     #             self.draw_lines(converted_house, colours)
 
+    def synchronise_objects(self, objects):
+        for object in objects:
+            object.synchronise_rotation()
+
+    def objects_rotate(self, objects):
+        for object in objects:
+            object.set_should_rotate()
+
     def create_grids(self):
         self.grids = []
         no_grids = 3
@@ -654,15 +703,17 @@ class Game:
                     z = dist * idx_z
                     grid = Grid([x, y, z], self.fps, self.volumes)
                     self.grids.append(grid)
-                    print("colours:", grid.get_colours())
+                    # print("colours:", grid.get_colours())
 
     def draw_grids(self):
         if len(self.grids) != 0:
             for grid in self.grids:
-                grid.update_grid(self.volumes)
+                grid.update_grid(self.camera_position, self.volumes)
                 converted_grids = self.convert_to_perspective(grid.get_grid())
                 # print("converted_grids", grid.get_grid())
-                self.draw_lines(converted_grids, grid.get_colours())
+                self.draw_lines(
+                    converted_grids, grid.get_colours(), grid.get_line_width()
+                )
 
     def main_loop(self, start_time):
         while True:
@@ -670,15 +721,16 @@ class Game:
                 self.display_surface.fill(self.bkgrnd_colour)
                 self.align_camera_to_ship()
 
+                self.handle_events(pygame.event.get())
+
                 # houses = threading.Thread(target=self.draw_houses)
                 # houses.start()
                 # self.draw_houses()
 
                 self.draw_grids()
 
-                converted_coords = self.convert_to_perspective(self.lines)
-                self.draw_lines(converted_coords)
-                self.handle_events(pygame.event.get())
+                # converted_coords = self.convert_to_perspective(self.lines)
+                # self.draw_lines(converted_coords)
 
                 # Render ship
                 self.render_ship()
