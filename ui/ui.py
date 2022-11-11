@@ -668,6 +668,10 @@ class Game:
                     if len(self.grids) != 0:
                         self.objects_rotate(self.grids)
 
+                elif key == K_e:
+                    if len(self.grids) != 0:
+                        self.objects_toggle_expand(self.grids)
+
     def set_volumes(self, volumes):
         self.volumes = volumes
 
@@ -690,6 +694,10 @@ class Game:
     def objects_rotate(self, objects):
         for object in objects:
             object.set_should_rotate()
+
+    def objects_toggle_expand(self, objects):
+        for object in objects:
+            object.toggle_expand_grids()
 
     def create_grids(self):
         self.grids = []

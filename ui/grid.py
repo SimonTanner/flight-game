@@ -8,6 +8,10 @@ class Grid:
         self.position = [0, 0, 0]
         # World position is where it will be when rendered
         self.world_position = position
+        self.grid_position = self.position
+        self.move_grid_fraction = 60
+        self.should_expand_grid = True
+
         self.fps = fps
         self.geometry = []
         self.volumes = volumes
@@ -26,6 +30,11 @@ class Grid:
 
     def create_grid(self):
         self.line_width = self.initial_line_width
+        self.grid_position_delta = scale_vector(
+            self.world_position, 1 / self.move_grid_fraction
+        )
+        self.move_grid_counter = 0
+        self.should_contract_grid = False
 
         length = 5
         self.line_vectors = [
@@ -83,23 +92,44 @@ class Grid:
             )
 
             return self.rotator.rotate_data(
-                point, self.rotation_angle, self.world_position
+                point, self.rotation_angle, self.grid_position
             )
         else:
             return point
 
+    def expand_grid(self):
+        if self.should_expand_grid:
+            if self.move_grid_counter <= self.move_grid_fraction:
+                self.grid_position = sum_vectors(
+                    self.grid_position, self.grid_position_delta
+                )
+                self.move_grid_counter += 1
+            else:
+                self.should_expand_grid = False
+
+        elif self.should_contract_grid:
+            if self.move_grid_counter > 0:
+                self.grid_position = sum_vectors(
+                    self.grid_position, self.grid_position_delta, True
+                )
+                self.move_grid_counter -= 1
+            else:
+                self.should_contract_grid = False
+
     def update_grid(self, position_to_cam, volumes):
+        self.expand_grid()
+
         self.geometry = []
         for idx in range(0, len(self.line_vectors)):
             self.geometry.append(
                 [
                     sum_vectors(
-                        self.world_position,
+                        self.grid_position,
                         self.line_vector_offsets_from_centre[idx][:],
                     ),
                     self.rotate_grid(
                         sum_vectors(
-                            self.world_position,
+                            self.grid_position,
                             scale_vector(self.line_vectors[idx][:], volumes[idx]),
                         ),
                         volumes[idx],
@@ -113,7 +143,7 @@ class Grid:
 
     def get_scale_from_distance(self, position_to_cam):
         distance_vector = sum_vectors(
-            self.world_position, position_to_cam, subtract=True
+            self.grid_position, position_to_cam, subtract=True
         )
 
         distance = scalar_product(distance_vector)
@@ -159,3 +189,11 @@ class Grid:
 
     def set_should_rotate(self):
         self.should_rotate = True if self.should_rotate == False else False
+
+    def toggle_expand_grids(self):
+        if self.should_expand_grid == True:
+            self.should_expand_grid = False
+            self.should_contract_grid = True
+        else:
+            self.should_expand_grid = True
+            self.should_contract_grid = False
