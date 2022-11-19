@@ -3,9 +3,9 @@ import random
 from physics.maths import *
 
 
-class Grid:
+class CircleGrid:
     def __init__(self, position, fps, volumes):
-        self.type = "line_grid"
+        self.type = "circle_grid"
         self.position = [0, 0, 0]
         # World position is where it will be when rendered
         self.world_position = position
@@ -18,7 +18,7 @@ class Grid:
         self.volumes = volumes
         self.init_colours = []
         self.colours = []
-        self.initial_line_width = 3
+        self.initial_diameter = 10
 
         self.create()
         self.rotator = Rotate()
@@ -30,7 +30,7 @@ class Grid:
         return list(map(lambda a: int(a), float_vec))
 
     def create(self):
-        self.line_width = self.initial_line_width
+        self.line_width = self.initial_diameter
         self.grid_position_delta = scale_vector(
             self.world_position, 1 / self.move_numerator
         )
@@ -71,11 +71,11 @@ class Grid:
             )
 
         for _ in range(0, len(self.line_vectors)):
-            delta = 100
+            delta = 50
             colour_shift = [
-                random.random() * delta + 0,
-                random.random() * delta + 70,
-                random.random() * delta + 155,
+                random.random() * delta + 205,
+                random.random() * delta * 2 + 50,
+                random.random() * delta + 50,
             ]
             # print("color shift:", colour_shift)
 
@@ -87,6 +87,8 @@ class Grid:
         if self.should_rotate == True:
             if self.sync_rotation:
                 volume = 1
+            else:
+                volume *= 2
 
             self.rotation_angle = sum_vectors(
                 self.rotation_angle, [0, 0, math.pi / 180 * volume]
@@ -117,31 +119,6 @@ class Grid:
             else:
                 self.should_contract = False
 
-    def update(self, position_to_cam, volumes):
-        self.expand()
-
-        self.geometry = []
-        for idx in range(0, len(self.line_vectors)):
-            self.geometry.append(
-                [
-                    sum_vectors(
-                        self.grid_position,
-                        self.line_vector_offsets_from_centre[idx][:],
-                    ),
-                    self.rotate(
-                        sum_vectors(
-                            self.grid_position,
-                            scale_vector(self.line_vectors[idx][:], volumes[idx]),
-                        ),
-                        volumes[idx],
-                    ),
-                ]
-            )
-        scale = self.get_scale_from_distance(position_to_cam)
-        self.update_line_width(scale)
-        self.update_colours(scale)
-        # print("updated grid:", self.geometry)
-
     def get_scale_from_distance(self, position_to_cam):
         distance_vector = sum_vectors(
             self.grid_position, position_to_cam, subtract=True
@@ -163,14 +140,41 @@ class Grid:
 
         return scale
 
+    def update(self, position_to_cam, volumes):
+        self.expand()
+
+        self.geometry = []
+        for idx in range(0, len(self.line_vectors)):
+            self.geometry.append(
+                [
+                    self.rotate(
+                        sum_vectors(
+                            self.grid_position,
+                            self.line_vector_offsets_from_centre[idx][:],
+                        )
+                    ),
+                    self.rotate(
+                        sum_vectors(
+                            self.grid_position,
+                            scale_vector(self.line_vectors[idx][:], volumes[idx]),
+                        ),
+                        volumes[idx],
+                    ),
+                ]
+            )
+        scale = self.get_scale_from_distance(position_to_cam)
+        self.update_diameter_width(scale, volumes)
+        self.update_colours(scale)
+        # print("updated grid:", self.geometry)
+
     def update_colours(self, scale):
         for idx in range(0, len(self.init_colours)):
             self.colours[idx] = self.convert_list_float_to_ints(
                 scale_vector(self.init_colours[idx], scale)
             )
 
-    def update_line_width(self, scale):
-        l_width = int(self.initial_line_width * scale)
+    def update_diameter_width(self, scale, volumes):
+        l_width = int(self.initial_diameter * scale * volumes[0])
         if l_width == 0:
             l_width = 1
         self.line_width = l_width

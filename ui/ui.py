@@ -1,12 +1,13 @@
 import pygame, sys, math, random, traceback, json, os, time, threading
 from pygame.locals import *
 
-# sys.path.append(os.getcwd())
+# print(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append("/home/simon/python/flight-game/physics")
 from physics.maths import *
 from physics.physics import *
 
 from ui.grid import Grid
+from ui.circles import CircleGrid
 
 
 class Game:
@@ -41,11 +42,13 @@ class Game:
         self.start_angle_ship = [0.0, 0.0, 0.0]
         self.ship_angle = [0, 0, 0]
         self.ship_start_pos = [-0.0, 0.0, 0.5]
+        self.ship_position = self.ship_start_pos
         self.ship_velocity = [0.0, 0.0, 0.0]
         self.ship_base_colour = (200, 50, 150)
         self.ship_turn_rate = math.pi / (self.fps * 5)
         self.hover = False
         self.align_cam_to_ship = True
+        self.reset_ship_position = False
 
         self.time_rate = 1 / self.fps
         self.lines = create_test_data()
@@ -90,7 +93,7 @@ class Game:
         # print(self.perp_vec_cp)
         self.get_clip_plane()
 
-        self.grids = []
+        self.objects = []
         self.houses = []
 
     def get_max_visible_angle(self):
@@ -198,27 +201,28 @@ class Game:
 
                     intersect_coords = plane_line_interesect(self.clip_plane, line_eqns)
 
-                    # Get coords relative to camera centre point in the clipping plane
-                    relative_coords = sum_vectors(
-                        intersect_coords, self.cp_centre_point, True
-                    )
-                    # Rotate these back to get the values required in the 2D plane
-                    plane_coords = self.rotate.unrotate_data(
-                        relative_coords, self.camera_ang
-                    )
-                    # plane_coords = relative_coords
+                    if intersect_coords[0] != None:
+                        # Get coords relative to camera centre point in the clipping plane
+                        relative_coords = sum_vectors(
+                            intersect_coords, self.cp_centre_point, True
+                        )
+                        # Rotate these back to get the values required in the 2D plane
+                        plane_coords = self.rotate.unrotate_data(
+                            relative_coords, self.camera_ang
+                        )
+                        # plane_coords = relative_coords
 
-                    delta_xy_in_vp = plane_coords[0]
-                    delta_yz_in_vp = plane_coords[2]
+                        delta_xy_in_vp = plane_coords[0]
+                        delta_yz_in_vp = plane_coords[2]
 
-                    scr_coord_x = round(
-                        self.screen_dims[0] / 2 - delta_xy_in_vp * scr_scale
-                    )
-                    scr_coord_y = round(
-                        self.screen_dims[1] / 2 - delta_yz_in_vp * scr_scale
-                    )
+                        scr_coord_x = round(
+                            self.screen_dims[0] / 2 - delta_xy_in_vp * scr_scale
+                        )
+                        scr_coord_y = round(
+                            self.screen_dims[1] / 2 - delta_yz_in_vp * scr_scale
+                        )
 
-                    screen_coords.append([scr_coord_x, scr_coord_y])
+                        screen_coords.append([scr_coord_x, scr_coord_y])
 
             if len(screen_coords) >= 2:
                 converted_coords.append(screen_coords)
@@ -502,6 +506,23 @@ class Game:
             self.display_surface, colour, start_coords, end_coords, thickness
         )
 
+    def draw_circles(self, coords, colours=[], radius=1):
+        len_colours = len(colours)
+        if len_colours == 0:
+            colour = self.line_colour
+        for idx in range(0, len(coords)):
+            # print(coord)
+            if idx < len_colours:
+                colour = colours[idx]
+            # print("line_colour:", colour)
+            self.draw_circle(coords[idx][0], colour, radius)
+            self.draw_circle(coords[idx][1], colour, radius)
+
+    def draw_circle(self, coords, colour=None, radius=1):
+        if colour == None:
+            colour = self.line_colour
+        pygame.draw.circle(self.display_surface, colour, coords, radius)
+
     def load_ship(self, filename, folder):
         # file_path = os.path.join(os.getcwd(), folder + filename)
         file_path = "/home/simon/python/flight-game/3d/ship/ship-geometry.json"
@@ -525,26 +546,27 @@ class Game:
         self.ship_dir_vector = self.ship_data["dir_vector"]
 
     def render_ship(self):
-        if self.ship_start_pos[2] > 0.55:
+        if self.ship_position[2] > 0.55:
             dv_dt = get_velocity_change([0.0, 0.0, 0.0], 1, self.time_rate)
             self.ship_velocity = sum_vectors(self.ship_velocity, dv_dt)
             dp = scale_vector(self.ship_velocity, self.time_rate)
-            self.ship_start_pos = sum_vectors(self.ship_start_pos, dp)
+            self.ship_position = sum_vectors(self.ship_position, dp)
 
-        if self.ship_start_pos[2] < 0.5:
+        if self.ship_position[2] < 0.5:
             self.ship_velocity = [0.0, 0.0, 0.0]
-            self.ship_start_pos = sum_vectors(self.ship_start_pos, [0, 0, 0.5])
+            self.ship_position = sum_vectors(self.ship_position, [0, 0, 0.5])
 
         self.hover_ship()
+        self.return_ship_to_start_position()
 
         # self.ship_data_positioned, _ = self.draw_object(
-        #     self.ship_data["faces"], self.ship_start_pos, self.ship_angle
+        #     self.ship_data["faces"], self.ship_position, self.ship_angle
         # )
 
     def align_camera_to_ship(self):
         if self.align_cam_to_ship is True:
             dir_vector = self.rotate.rotate_data(self.ship_dir_vector, self.ship_angle)
-            self.camera_position = sum_vectors(self.ship_start_pos, dir_vector)
+            self.camera_position = sum_vectors(self.ship_position, dir_vector)
             self.camera_ang = self.ship_angle
             self.rotate_camera([0, 0, self.cam_ang_rate])
 
@@ -581,31 +603,30 @@ class Game:
         dv_dt = get_velocity_change(boost_vec, 1, self.time_rate)
         self.ship_velocity = sum_vectors(self.ship_velocity, dv_dt)
         dp = scale_vector(self.ship_velocity, self.time_rate)
-        self.ship_start_pos = sum_vectors(self.ship_start_pos, dp)
+        self.ship_position = sum_vectors(self.ship_position, dp)
 
     def hover_ship(self):
         if self.hover == True:
             amount = 9.81
-            if self.ship_start_pos[2] < 50.0:
+            if self.ship_position[2] < 50.0:
                 if self.ship_velocity[2] < 0.0:
                     amount = 0.1 * abs(self.ship_velocity[2]) / self.time_rate + 19.5
             self.boost_ship(amount)
 
-    def init_game(self):
-        pygame.init()
-        self.load_ship("ship-geometry.json", "3d/ship/")
-        self.display_surface = pygame.display.set_mode(
-            self.screen_dims, pygame.RESIZABLE | pygame.HWSURFACE | pygame.DOUBLEBUF, 32
-        )
-
-        # Set name in title bar
-        pygame.display.set_caption("Flight Game")
-
-        pygame.key.set_repeat(50, 10)
+    def return_ship_to_start_position(self):
+        if self.reset_ship_position:
+            dist_to_start_point = scalar_product(
+                sum_vectors(self.ship_position, self.ship_start_pos, True)
+            )
+            if dist_to_start_point > 1:
+                self.ship_position = sum_vectors(
+                    self.ship_position, self.reset_ship_pos_delta, True
+                )
+            else:
+                self.reset_ship_position = False
 
     def handle_events(self, events):
         for event in events:
-            # print(event)
             if event.type == VIDEORESIZE:
                 self.screen_dims = [event.w, event.h]
                 # to reset the scale when resizing add scale var below
@@ -621,24 +642,26 @@ class Game:
                 sys.exit()
 
             elif event.type == KEYDOWN:
+                # Any key that we want to keep triggering by holding the key down
                 key = event.key
                 if key == K_EQUALS:
                     if self.fov_ang < math.pi - 0.01:
                         self.fov_ang += math.pi / (self.fps * 20)
+
                 elif key == K_MINUS:
                     if self.fov_ang > 0.01:
                         self.fov_ang -= math.pi / (self.fps * 20)
 
-                elif key == K_l:
-                    self.rotate_camera([0, 0, self.cam_ang_rate])
-                elif key == K_r:
-                    self.rotate_camera([0, 0, -self.cam_ang_rate])
+                # elif key == K_l:
+                #     self.rotate_camera([0, 0, self.cam_ang_rate])
+                # elif key == K_r:
+                #     self.rotate_camera([0, 0, -self.cam_ang_rate])
 
-                elif key == K_u:
-                    self.rotate_camera([self.cam_ang_rate, 0, 0])
+                # elif key == K_u:
+                #     self.rotate_camera([self.cam_ang_rate, 0, 0])
 
-                elif key == K_d:
-                    self.rotate_camera([-self.cam_ang_rate, 0, 0])
+                # elif key == K_d:
+                #     self.rotate_camera([-self.cam_ang_rate, 0, 0])
 
                 elif key in [K_LEFT, K_RIGHT, K_UP, K_DOWN, K_COMMA, K_PERIOD]:
                     self.rotate_ship(key)
@@ -646,7 +669,11 @@ class Game:
                 elif key == K_RETURN:
                     self.boost_ship(30)
 
-                elif key == K_h:
+            elif event.type == KEYUP:
+                # Any key that we want to keep triggering by holding the key down
+                key = event.key
+
+                if key == K_h:
                     self.hover = True if self.hover == False else False
 
                 elif key == K_a:
@@ -655,37 +682,63 @@ class Game:
                     )
 
                 elif key == K_g:
-                    if len(self.grids) == 0:
-                        self.create_grids()
+                    if len(self.objects) == 0:
+                        print("G")
+                        self.create_geometry("line_grid")
                     else:
-                        self.grids = []
+                        self.objects = []
+
+                elif key == K_c:
+                    if len(self.objects) == 0:
+                        self.create_geometry("circle_grid")
+                    else:
+                        self.objects = []
 
                 elif key == K_s:
-                    if len(self.grids) != 0:
-                        self.synchronise_objects(self.grids)
+                    if len(self.objects) != 0:
+                        self.synchronise_objects(self.objects)
 
                 elif key == K_w:
-                    if len(self.grids) != 0:
-                        self.objects_rotate(self.grids)
+                    if len(self.objects) != 0:
+                        self.objects_rotate(self.objects)
 
                 elif key == K_e:
-                    if len(self.grids) != 0:
-                        self.objects_toggle_expand(self.grids)
+                    if len(self.objects) != 0:
+                        print("E")
+                        self.objects_toggle_expand(self.objects)
+
+                elif key == K_r:
+                    self.reset_ship_position = (
+                        True if self.reset_ship_position == False else False
+                    )
+
+                    print("R", self.reset_ship_position)
+
+                    if self.reset_ship_position:
+                        # ship_pos_reset_delta_scale = scalar_product(
+                        #     self.ship_position
+                        # )
+                        # print(scalar_product(self.ship_position))
+                        # print("ship reset pos scale:", ship_pos_reset_delta_scale)
+                        self.reset_ship_pos_delta = scale_vector(
+                            self.ship_position, 1 / (self.fps * 2)
+                        )
+                        print("ship reset pos delta:", self.reset_ship_pos_delta)
+
+    def init_game(self):
+        pygame.init()
+        self.load_ship("ship-geometry.json", "3d/ship/")
+        self.display_surface = pygame.display.set_mode(
+            self.screen_dims, pygame.RESIZABLE | pygame.HWSURFACE | pygame.DOUBLEBUF, 32
+        )
+
+        # Set name in title bar
+        pygame.display.set_caption("Flight Game")
+
+        pygame.key.set_repeat(50, 10)
 
     def set_volumes(self, volumes):
         self.volumes = volumes
-
-    # def draw_houses(self):
-    #     no_houses = 5
-    #     dist = 20
-    #     colours = get_house_colours(self.volumes)
-    #     for idx_x in range(-no_houses, no_houses):
-    #         x = dist * idx_x
-    #         for idx_y in range(-no_houses, no_houses):
-    #             y = dist * idx_y
-    #             house = draw_house(self.volumes, [x, y, 0])
-    #             converted_house = self.convert_to_perspective(house)
-    #             self.draw_lines(converted_house, colours)
 
     def synchronise_objects(self, objects):
         for object in objects:
@@ -697,31 +750,50 @@ class Game:
 
     def objects_toggle_expand(self, objects):
         for object in objects:
-            object.toggle_expand_grids()
+            object.toggle_expand()
 
-    def create_grids(self):
-        self.grids = []
-        no_grids = 3
+    def create_geometry(self, type):
+        self.objects = []
+        no_objects = 3
         dist = 20
-        for idx_x in range(-no_grids, no_grids):
+        if type == "line_grid":
+            class_to_use = Grid
+        elif type == "circle_grid":
+            class_to_use = CircleGrid
+
+        for idx_x in range(-no_objects, no_objects):
             x = dist * idx_x
-            for idx_y in range(-no_grids, no_grids):
+            for idx_y in range(-no_objects, no_objects):
                 y = dist * idx_y
-                for idx_z in range(-no_grids, no_grids):
+                for idx_z in range(-no_objects, no_objects):
                     z = dist * idx_z
-                    grid = Grid([x, y, z], self.fps, self.volumes)
-                    self.grids.append(grid)
+                    grid = class_to_use([x, y, z], self.fps, self.volumes)
+                    self.objects.append(grid)
                     # print("colours:", grid.get_colours())
 
-    def draw_grids(self):
-        if len(self.grids) != 0:
-            for grid in self.grids:
-                grid.update_grid(self.camera_position, self.volumes)
-                converted_grids = self.convert_to_perspective(grid.get_grid())
-                # print("converted_grids", grid.get_grid())
-                self.draw_lines(
-                    converted_grids, grid.get_colours(), grid.get_line_width()
-                )
+    def draw_geometry(self):
+        if len(self.objects) != 0:
+            if self.objects[0].type == "line_grid":
+                for object in self.objects:
+                    object.update(self.camera_position, self.volumes)
+                    converted_objects = self.convert_to_perspective(
+                        object.get_geometry()
+                    )
+                    # print("converted_objects", object.get_geometry())
+                    self.draw_lines(
+                        converted_objects, object.get_colours(), object.get_line_width()
+                    )
+
+            if self.objects[0].type == "circle_grid":
+                for object in self.objects:
+                    object.update(self.camera_position, self.volumes)
+                    converted_objects = self.convert_to_perspective(
+                        object.get_geometry()
+                    )
+                    # print("converted_objects", object.get_geometry())
+                    self.draw_circles(
+                        converted_objects, object.get_colours(), object.get_line_width()
+                    )
 
     def main_loop(self, start_time):
         while True:
@@ -735,7 +807,7 @@ class Game:
                 # houses.start()
                 # self.draw_houses()
 
-                self.draw_grids()
+                self.draw_geometry()
 
                 # converted_coords = self.convert_to_perspective(self.lines)
                 # self.draw_lines(converted_coords)
@@ -803,60 +875,3 @@ def create_test_data():
     # print(lines)
 
     return lines
-
-
-def draw_house(volumes, start_position=[0, 0, 0]):
-    lines = []
-    wall_left_vec = [0, 0, 6.0]
-    wall_right_vec = [0, 0, 6.0]
-    roof_left_vec = [-5.0, 0, 4.0]
-    roof_right_vec = [5.0, 0, 4.0]
-
-    for i in range(0, 10):
-        y_pos = 5 + i
-        wall_left_pos = sum_vectors([5.0, y_pos, 0.0], start_position)
-        wall_right_pos = sum_vectors([-5.0, y_pos, 0.0], start_position)
-        roof_left_pos = sum_vectors([5.0, y_pos, 6.0], start_position)
-        roof_right_pos = sum_vectors([-5.0, y_pos, 6.0], start_position)
-        lines.append(
-            [
-                wall_left_pos,
-                sum_vectors(
-                    wall_left_pos, scale_vector(wall_left_vec, 10 * volumes[0])
-                ),
-            ]
-        )
-        lines.append(
-            [
-                wall_right_pos,
-                sum_vectors(
-                    wall_right_pos, scale_vector(wall_right_vec, 10 * volumes[1])
-                ),
-            ]
-        )
-        lines.append(
-            [
-                roof_left_pos,
-                sum_vectors(roof_left_pos, scale_vector(roof_left_vec, 1 * volumes[2])),
-            ]
-        )
-        lines.append(
-            [
-                roof_right_pos,
-                sum_vectors(
-                    roof_right_pos, scale_vector(roof_right_vec, 1 * volumes[3])
-                ),
-            ]
-        )
-    return lines
-
-
-def get_house_colours(volumes):
-    colours = [
-        [200 * volumes[0], 50 * volumes[0], 30 * volumes[1]],
-        [200 * volumes[2], 50 * volumes[0], 200 * volumes[0]],
-        [200 * volumes[3], 50 * volumes[1], 30 * volumes[2]],
-        [100 * volumes[2], 200 * volumes[0], 30 * volumes[1]],
-    ]
-
-    return colours
