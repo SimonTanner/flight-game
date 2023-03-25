@@ -14,6 +14,7 @@ class JellyFish:
         self.no_joints = 30
         # World position is where it will be when rendered
         self.world_position = position
+        self.grid_position = self.position
         self.jelly_fish_position = self.position
         self.move_numerator = 60
         self.should_expand = True
@@ -111,16 +112,43 @@ class JellyFish:
 
     def update(self, position_to_cam, volumes):
         self.counter += 1
+        scale = self.get_scale_from_distance(position_to_cam)
         self.generate_gemoetry()
+        self.update_colours(scale)
 
     def get_scale_from_distance(self, position_to_cam):
-        pass
+        distance_vector = sum_vectors(
+            self.grid_position, position_to_cam, subtract=True
+        )
+
+        distance = scalar_product(distance_vector)
+        scale = 1
+        if distance > 20 and distance < 40:
+            scale = 0.9
+
+        elif distance > 40 and distance < 60:
+            scale = 0.7
+
+        elif distance > 60 and distance < 80:
+            scale = 0.5
+
+        elif distance > 80:
+            scale = 0.3
+
+        return scale
 
     def update_colours(self, scale):
+        self.colours = []
+        colours = []
         for idx in range(0, len(self.init_colours)):
-            self.colours[idx] = self.convert_list_float_to_ints(
-                scale_vector(self.init_colours[idx], scale)
+            colours.append(
+                self.convert_list_float_to_ints(
+                    scale_vector(self.init_colours[idx], scale)
+                )
             )
+
+        for _ in range(0, self.num_sides):
+            self.colours = self.colours + colours
 
     def update_line_width(self, scale):
         l_width = int(self.initial_line_width * scale)
