@@ -8,6 +8,7 @@ from physics.physics import *
 
 from ui.grid import Grid
 from ui.circles import CircleGrid
+from ui.jelly_fish import JellyFish
 
 
 class Game:
@@ -694,6 +695,13 @@ class Game:
                     else:
                         self.objects = []
 
+                elif key == K_j:
+                    if len(self.objects) == 0:
+                        print("creating jelly fish")
+                        self.create_geometry("jelly_fish", no_objects=1)
+                    else:
+                        self.objects = []
+
                 elif key == K_s:
                     if len(self.objects) != 0:
                         self.synchronise_objects(self.objects)
@@ -752,24 +760,28 @@ class Game:
         for object in objects:
             object.toggle_expand()
 
-    def create_geometry(self, type):
+    def create_geometry(self, type, no_objects=3, dist=20):
         self.objects = []
-        no_objects = 3
-        dist = 20
+
         if type == "line_grid":
             class_to_use = Grid
         elif type == "circle_grid":
             class_to_use = CircleGrid
-
-        for idx_x in range(-no_objects, no_objects):
-            x = dist * idx_x
-            for idx_y in range(-no_objects, no_objects):
-                y = dist * idx_y
-                for idx_z in range(-no_objects, no_objects):
-                    z = dist * idx_z
-                    grid = class_to_use([x, y, z], self.fps, self.volumes)
-                    self.objects.append(grid)
-                    # print("colours:", grid.get_colours())
+        elif type == "jelly_fish":
+            class_to_use = JellyFish
+        if no_objects == 1:
+            grid = class_to_use([0, 0, 0], self.fps, self.volumes)
+            self.objects.append(grid)
+        else:
+            for idx_x in range(-no_objects, no_objects):
+                x = dist * idx_x
+                for idx_y in range(-no_objects, no_objects):
+                    y = dist * idx_y
+                    for idx_z in range(-no_objects, no_objects):
+                        z = dist * idx_z
+                        grid = class_to_use([x, y, z], self.fps, self.volumes)
+                        self.objects.append(grid)
+                        # print("colours:", grid.get_colours())
 
     def draw_geometry(self):
         if len(self.objects) != 0:
@@ -792,6 +804,17 @@ class Game:
                     )
                     # print("converted_objects", object.get_geometry())
                     self.draw_circles(
+                        converted_objects, object.get_colours(), object.get_line_width()
+                    )
+
+            if self.objects[0].type == "jelly_fish":
+                for object in self.objects:
+                    object.update(self.camera_position, self.volumes)
+                    converted_objects = self.convert_to_perspective(
+                        object.get_geometry()
+                    )
+                    # print("converted_objects", object.get_geometry())
+                    self.draw_lines(
                         converted_objects, object.get_colours(), object.get_line_width()
                     )
 
