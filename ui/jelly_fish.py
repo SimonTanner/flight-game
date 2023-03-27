@@ -38,30 +38,31 @@ class JellyFish:
     def convert_list_float_to_ints(self, float_vec):
         return list(map(lambda a: int(a), float_vec))
 
-    def generate_coords(self, idx, line_length):
+    def generate_coords(self, idx, line_length, volumes):
         y = idx * line_length
 
         delta_z = math.sin((math.pi * y) / (self.length))
-        z = self.width * delta_z + (
+        z = self.width * delta_z * volumes[0] / 2 + (
             delta_z
-            * (self.width / 5)
+            * (self.width / 5 * volumes[2])
             * math.sin(
                 (3 * math.pi * y) / (self.length)
-                + (self.undulation_speed * self.counter)
+                + (self.undulation_speed * math.log(volumes[1]) * self.counter)
             )
         )
 
         return [0, y, z]
 
-    def generate_gemoetry(self):
+    def generate_gemoetry(self, volumes):
         self.geometry = []
         self.line_width = self.initial_line_width
         line_length = self.length / self.no_joints
+        # print(volumes)
 
         for i in range(0, self.no_joints):
 
-            p1 = self.generate_coords(i, line_length)
-            p2 = self.generate_coords(i + 1, line_length)
+            p1 = self.generate_coords(i, line_length, volumes)
+            p2 = self.generate_coords(i + 1, line_length, volumes)
 
             self.geometry.append([p1, p2])
 
@@ -81,7 +82,7 @@ class JellyFish:
 
     def create(self):
         print(1)
-        self.generate_gemoetry()
+        self.generate_gemoetry(self.volumes)
 
         for i in range(0, self.no_joints):
             delta = 70
@@ -113,7 +114,8 @@ class JellyFish:
     def update(self, position_to_cam, volumes):
         self.counter += 1
         scale = self.get_scale_from_distance(position_to_cam)
-        self.generate_gemoetry()
+        self.generate_gemoetry(volumes)
+        self.update_line_width(scale)
         self.update_colours(scale)
 
     def get_scale_from_distance(self, position_to_cam):
@@ -155,7 +157,6 @@ class JellyFish:
         if l_width == 0:
             l_width = 1
         self.line_width = l_width
-        # print("line width:", self.line_width)
 
     def get_geometry(self):
         return self.geometry
