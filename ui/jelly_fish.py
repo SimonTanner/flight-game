@@ -6,9 +6,10 @@ from physics.maths import *
 class JellyFish:
     def __init__(self, position, fps, volumes):
         self.type = "jelly_fish"
-        self.position = [0, 0, 0]
+        self.position = position
         # length along the y axis for ease.
-        self.length = 60
+        self.initial_length = 60
+        self.length = self.initial_length
         self.width = 30
         self.num_sides = 12
         self.no_joints = 30
@@ -16,7 +17,7 @@ class JellyFish:
         self.world_position = position
         self.grid_position = self.position
         self.jelly_fish_position = self.position
-        self.move_numerator = 60
+        self.move_numerator = 30
         self.should_expand = True
 
         self.fps = fps
@@ -25,7 +26,7 @@ class JellyFish:
         self.init_colours = []
         self.colours = []
         self.initial_line_width = 3
-        self.undulation_speed = 0.4
+        self.undulation_speed = -0.3
         self.counter = 0
 
         self.rotator = Rotate()
@@ -42,12 +43,14 @@ class JellyFish:
         y = idx * line_length
 
         delta_z = math.sin((math.pi * y) / (self.length))
+        # volumes[1] = 1
+        volumes[2] = 1
         z = self.width * delta_z * volumes[0] / 2 + (
             delta_z
             * (self.width / 5 * volumes[2])
             * math.sin(
                 (3 * math.pi * y) / (self.length)
-                + (self.undulation_speed * math.log(volumes[1]) * self.counter)
+                + (self.undulation_speed * math.log(volumes[1] + 1) * self.counter)
             )
         )
 
@@ -55,18 +58,17 @@ class JellyFish:
 
     def generate_gemoetry(self, volumes):
         self.geometry = []
-        self.line_width = self.initial_line_width
+        self.length = self.initial_length * (volumes[0] + 1)
         line_length = self.length / self.no_joints
+        first_side = []
         # print(volumes)
 
         for i in range(0, self.no_joints):
 
             p1 = self.generate_coords(i, line_length, volumes)
             p2 = self.generate_coords(i + 1, line_length, volumes)
+            first_side.append([p1, p2])
 
-            self.geometry.append([p1, p2])
-
-        first_side = self.geometry[:]
         y_ang = math.pi * 2 / self.num_sides
 
         for side_no in range(0, self.num_sides):
@@ -74,7 +76,10 @@ class JellyFish:
                 rotated_line = []
                 for point in line:
                     rotated_line.append(
-                        self.rotator.rotate_data(point, [0, side_no * y_ang, 0])
+                        sum_vectors(
+                            self.position,
+                            self.rotator.rotate_data(point, [0, side_no * y_ang, 0]),
+                        )
                     )
                 self.geometry.append(rotated_line)
 
@@ -116,7 +121,7 @@ class JellyFish:
         scale = self.get_scale_from_distance(position_to_cam)
         self.generate_gemoetry(volumes)
         self.update_line_width(scale)
-        self.update_colours(scale)
+        self.update_colours(scale, volumes)
 
     def get_scale_from_distance(self, position_to_cam):
         distance_vector = sum_vectors(
@@ -139,13 +144,15 @@ class JellyFish:
 
         return scale
 
-    def update_colours(self, scale):
+    def update_colours(self, scale, volumes):
         self.colours = []
         colours = []
+        volume = volumes[2]
         for idx in range(0, len(self.init_colours)):
+            # print("scale:", scale, "volume:", volume)
             colours.append(
                 self.convert_list_float_to_ints(
-                    scale_vector(self.init_colours[idx], scale)
+                    scale_vector(self.init_colours[idx], scale * volume)
                 )
             )
 
