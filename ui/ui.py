@@ -13,6 +13,7 @@ from ui.jelly_fish import JellyFish
 
 class Game:
     def __init__(self, screen_dims=[1800, 1000], volumes=[1, 1, 1, 1, 1, 1, 1, 1]):
+        self.play_main_loop = True
         self.screen_dims = screen_dims
         self.fps = 30  # Frame rate
         self.fps_clock = pygame.time.Clock()
@@ -635,12 +636,14 @@ class Game:
                     self.screen_dims, pygame.RESIZABLE | pygame.FULLSCREEN, 32
                 )
                 self.display_surface.fill(self.bkgrnd_colour)
-                # Recalculate the maximum angle that an object is visible due to scren size change
+                # Recalculate the maximum angle that an object is visible due to screen size change
                 self.get_max_visible_angle()
 
-            elif event.type == QUIT:
+            elif event.type == QUIT or event.type == K_ESCAPE:
+                print("quitting")
+                self.play_main_loop = False
                 pygame.quit()
-                sys.exit()
+                return False
 
             elif event.type == KEYDOWN:
                 # Any key that we want to keep triggering by holding the key down
@@ -674,7 +677,13 @@ class Game:
                 # Any key that we want to keep triggering by holding the key down
                 key = event.key
 
-                if key == K_h:
+                if event.key == K_ESCAPE:
+                    print("quitting")
+                    self.play_main_loop = False
+                    pygame.quit()
+                    return False
+
+                elif key == K_h:
                     self.hover = True if self.hover == False else False
 
                 elif key == K_a:
@@ -682,16 +691,21 @@ class Game:
                         True if self.align_cam_to_ship == False else False
                     )
 
+                elif key == K_c:
+                    if len(self.objects) == 0:
+                        self.create_geometry("circle_grid")
+                    else:
+                        self.objects = []
+
+                elif key == K_e:
+                    if len(self.objects) != 0:
+                        print("E")
+                        self.objects_toggle_expand(self.objects)
+
                 elif key == K_g:
                     if len(self.objects) == 0:
                         print("G")
                         self.create_geometry("line_grid")
-                    else:
-                        self.objects = []
-
-                elif key == K_c:
-                    if len(self.objects) == 0:
-                        self.create_geometry("circle_grid")
                     else:
                         self.objects = []
 
@@ -702,6 +716,9 @@ class Game:
                     else:
                         self.objects = []
 
+                elif key == K_f:
+                    pygame.display.toggle_fullscreen()
+
                 elif key == K_s:
                     if len(self.objects) != 0:
                         self.synchronise_objects(self.objects)
@@ -709,11 +726,6 @@ class Game:
                 elif key == K_w:
                     if len(self.objects) != 0:
                         self.objects_rotate(self.objects)
-
-                elif key == K_e:
-                    if len(self.objects) != 0:
-                        print("E")
-                        self.objects_toggle_expand(self.objects)
 
                 elif key == K_r:
                     self.reset_ship_position = (
@@ -770,7 +782,7 @@ class Game:
         elif type == "jelly_fish":
             class_to_use = JellyFish
         if no_objects == 1:
-            grid = class_to_use([0, 0, 0], self.fps, self.volumes)
+            grid = class_to_use([10, 0, 0], self.fps, self.volumes)
             self.objects.append(grid)
         else:
             for idx_x in range(-no_objects, no_objects):
@@ -796,7 +808,7 @@ class Game:
                         converted_objects, object.get_colours(), object.get_line_width()
                     )
 
-            if self.objects[0].type == "circle_grid":
+            elif self.objects[0].type == "circle_grid":
                 for object in self.objects:
                     object.update(self.camera_position, self.volumes)
                     converted_objects = self.convert_to_perspective(
@@ -807,7 +819,7 @@ class Game:
                         converted_objects, object.get_colours(), object.get_line_width()
                     )
 
-            if self.objects[0].type == "jelly_fish":
+            elif self.objects[0].type == "jelly_fish":
                 for object in self.objects:
                     object.update(self.camera_position, self.volumes)
                     converted_objects = self.convert_to_perspective(
@@ -819,7 +831,8 @@ class Game:
                     )
 
     def main_loop(self, start_time):
-        while True:
+        self.play_main_loop = True
+        while self.play_main_loop:
             try:
                 self.display_surface.fill(self.bkgrnd_colour)
                 self.align_camera_to_ship()
@@ -839,9 +852,7 @@ class Game:
                 self.render_ship()
                 pygame.display.flip()
                 self.fps_clock.tick(self.fps)
-                end_time = time.time()
                 self.counter += 1
-                total_time = end_time - start_time
                 # print("counter:", self.counter, "time:", total_time)
                 # if self.counter > 30:
                 #     break
@@ -856,6 +867,10 @@ class Game:
                 #     file.close()
                 break
             # print("counter:", self.counter, "time:", total_time)
+        timeTaken = time.time() - start_time
+        print("game exited. Counter:", self.counter, "time taken:", timeTaken)
+        pygame.quit()
+        # sys.exit()
 
     def main(self):
         # Main game loop
