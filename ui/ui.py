@@ -633,13 +633,18 @@ class Game:
                 self.screen_dims = [event.w, event.h]
                 # to reset the scale when resizing add scale var below
                 self.display_surface = pygame.display.set_mode(
-                    self.screen_dims, pygame.RESIZABLE | pygame.FULLSCREEN, 32
+                    self.screen_dims, pygame.RESIZABLE, 32
                 )
                 self.display_surface.fill(self.bkgrnd_colour)
                 # Recalculate the maximum angle that an object is visible due to screen size change
                 self.get_max_visible_angle()
+            elif event.type == K_ESCAPE:
+                self.display_surface = pygame.display.set_mode(
+                    self.screen_dims, pygame.RESIZABLE | pygame.FULLSCREEN, 32
+                )
+                self.display_surface.fill(self.bkgrnd_colour)
 
-            elif event.type == QUIT or event.type == K_ESCAPE:
+            elif event.type == QUIT:
                 print("quitting")
                 self.play_main_loop = False
                 pygame.quit()
